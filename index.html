@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Clínico v6.0 (Predictivo)</title>
+    <title>Monitor Clínico v6.1 (Predictivo + IOB)</title>
     <!-- MQTT para sincronización (Versión ligera) -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js (CDN optimizado) -->
@@ -25,6 +25,7 @@
             --danger: #e74c3c;
             --info: #3498db;
             --ketone: #9b59b6; /* Morado Cetonas */
+            --iob: #f1c40f; /* Amarillo IOB */
         }
 
         body {
@@ -79,26 +80,43 @@
         .connected .status-dot { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
         .disconnected .status-dot { background-color: var(--danger); }
 
-        /* Display Principal */
-        #valor-glucosa {
-            font-size: 6rem;
-            font-weight: 700;
-            line-height: 1;
-            margin: 10px 0;
-            letter-spacing: -2px;
-            color: #3498db; /* Azul Info */
-            transition: color 0.5s ease;
-            text-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
-        }
-
-        .unidad { font-size: 1.5rem; color: var(--text-dim); font-weight: 400; }
-
+        /* Main Display */
         #flecha-tendencia {
             font-size: 3rem;
             height: 50px;
             margin-top: -15px;
             display: block;
         }
+
+        #valor-glucosa {
+            font-size: 6rem;
+            font-weight: 700;
+            line-height: 1;
+            margin: 10px 0;
+            letter-spacing: -2px;
+            color: #3498db;
+            transition: color 0.5s ease;
+            text-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+        }
+
+        /* IOB Display (Nuevo) */
+        #iob-container {
+            height: 30px;
+            margin-top: 5px;
+        }
+        #iob-display {
+            font-size: 1rem;
+            color: var(--iob);
+            border: 1px solid var(--iob);
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            opacity: 0; /* Oculto por defecto hasta que haya insulina */
+            transition: opacity 0.5s;
+        }
+
+        .unidad { font-size: 1.5rem; color: var(--text-dim); font-weight: 400; }
 
         #mensaje-estado {
             font-size: 1.2rem;
@@ -256,6 +274,7 @@
         <!-- Main Display -->
         <div id="flecha-tendencia">--</div>
         <div id="valor-glucosa">---</div>
+        <div id="iob-container"><div id="iob-display">IOB: 0.00 UI</div></div>
         <div class="unidad">mg/dL</div>
         <div id="mensaje-estado">Conectando...</div>
         
@@ -311,7 +330,7 @@
     </div>
 
     <script>
-        // --- SISTEMA OPTIMIZADO V6.0 (Predictivo) ---
+        // --- SISTEMA OPTIMIZADO V6.1 (Predictivo + IOB) ---
         
         // 1. Configuración Global
         const CONFIG = {
@@ -324,7 +343,9 @@
         let state = {
             glucosa: 110.0,
             tendencia: 0.0,
-            lastEventId: 0
+            lastEventId: 0,
+            iob: 0.0, // Insulina a Bordo
+            lastInsulinTime: 0
         };
 
         let client, chart, audioCtx;
@@ -361,6 +382,15 @@
         // 3. Lógica de Negocio
         function simularFisiologia() {
             const ruido = (Math.random() - 0.5) * 2;
+            
+            // Decaimiento de IOB (Curva exponencial de absorción - aprox 20% cada hora simulada)
+            // En simulación 1 min, decaimiento rápido para efectos visuales
+            if (state.iob > 0.05) {
+                state.iob *= 0.98; // Se consume
+            } else {
+                state.iob = 0;
+            }
+
             state.glucosa += state.tendencia + ruido;
 
             if (state.tendencia > 0) state.tendencia -= 0.1;
@@ -428,6 +458,7 @@
             if (tipo === 'insulina_custom') {
                 const u = parseFloat(document.getElementById('input-insulina').value) || 0;
                 state.tendencia -= (u * 1.5);
+                state.iob += u; // Sumar al cálculo de IOB
                 msg = `💉 Insulina: ${u} UI`;
             } else if (tipo === 'comida') {
                 const val = document.getElementById('select-comida').value;
@@ -438,7 +469,7 @@
                 state.tendencia -= 2.0;
                 msg = "🏃 Ejercicio iniciado";
             } else if (tipo === 'reset') {
-                state.glucosa = 110; state.tendencia = 0;
+                state.glucosa = 110; state.tendencia = 0; state.iob = 0;
                 msg = "🔄 Reset";
             }
 
@@ -490,6 +521,15 @@
             else if (t < -0.5) elFlecha.innerText = "↘️";
             else elFlecha.innerText = "➡️";
 
+            // Actualizar IOB Display
+            const elIOB = document.getElementById('iob-display');
+            if (data.iob && data.iob > 0.1) {
+                elIOB.innerText = `IOB: ${data.iob.toFixed(2)} UI`;
+                elIOB.style.opacity = 1;
+            } else {
+                elIOB.style.opacity = 0;
+            }
+
             // Actualizar Gráfico + Predicción
             if(chart) {
                 const now = new Date();
@@ -508,36 +548,30 @@
                 }
 
                 // 2. Calcular Predicción (30 min a futuro)
-                // Limpiamos predicciones viejas
                 const lastRealIndex = chart.data.datasets[0].data.length - 1;
-                // Borrar cola de predicción anterior si existe
                 while(chart.data.labels.length > lastRealIndex + 1) {
                     chart.data.labels.pop();
                     chart.data.datasets[0].data.pop();
                     chart.data.datasets[1].data.pop();
                 }
 
-                // Generar nueva proyección
                 let predVal = val;
                 let predTendencia = data.tendencia;
                 
-                // Conectar el último punto real con la predicción
                 chart.data.datasets[1].data[lastRealIndex] = val; 
 
-                for(let i=1; i<=30; i+=5) { // Cada 5 mins
-                    // Simulación rápida de futuro
+                for(let i=1; i<=30; i+=5) { 
                     predVal += (predTendencia * 5); 
-                    if (predTendencia > 0) predTendencia -= 0.5; // Decaimiento inercia
+                    if (predTendencia > 0) predTendencia -= 0.5; 
                     if (predTendencia < 0) predTendencia += 0.5;
                     
                     const futureTime = new Date(now.getTime() + i*60000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                     
                     chart.data.labels.push(futureTime);
-                    chart.data.datasets[0].data.push(null); // Hueco en real
-                    chart.data.datasets[1].data.push(predVal); // Dato en predicción
+                    chart.data.datasets[0].data.push(null);
+                    chart.data.datasets[1].data.push(predVal);
                 }
 
-                // Render
                 if (!chart.isZoomedOrPanned()) {
                     chart.update('none');
                 }
