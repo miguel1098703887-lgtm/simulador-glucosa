@@ -510,7 +510,9 @@
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                 }
-                chart.data.datasets[0].borderColor = elVal.style.color;
+                // Color fijo verde neón siempre
+                chart.data.datasets[0].borderColor = '#2ecc71'; 
+                chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
                 chart.update('none'); // Sin animación pesada
             }
         }
