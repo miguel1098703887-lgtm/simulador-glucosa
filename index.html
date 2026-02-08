@@ -515,12 +515,20 @@
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                 }
-                // Color fijo verde neón siempre
-                chart.data.datasets[0].borderColor = '#2ecc71'; 
-                chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
-                chart.update('none'); // Sin animación pesada
+                // Chart Update (Optimizado)
+                if(chart) {
+                    chart.data.labels.push('');
+                    chart.data.datasets[0].data.push(val);
+                    if(chart.data.labels.length > 20) {
+                        chart.data.labels.shift();
+                        chart.data.datasets[0].data.shift();
+                    }
+                    // Color fijo verde neón siempre
+                    chart.data.datasets[0].borderColor = '#2ecc71'; 
+                    chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
+                    chart.update('none'); // Sin animación pesada
+                }
             }
-        }
         }
 
         function gestionarAlarma(esGrave) {
