@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Sincronizado v2.0</title>
+    <title>Monitor Sincronizado v2.1</title>
     <!-- MQTT para sincronización -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js para gráficos -->
@@ -29,7 +29,7 @@
             border-radius: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             width: 90%;
-            max-width: 500px; /* Un poco más ancho para el gráfico */
+            max-width: 500px;
             transition: all 0.3s ease;
         }
 
@@ -43,6 +43,7 @@
         }
         .connected { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
         .disconnected { background-color: #e74c3c; }
+        .error { background-color: #e74c3c; }
 
         h1 {
             color: #555;
@@ -79,6 +80,13 @@
             display: inline-block;
             width: 100%;
             margin-bottom: 20px;
+        }
+        
+        #debug-log {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 10px;
+            height: 20px;
         }
 
         /* Estilos del Gráfico */
@@ -132,19 +140,21 @@
     <div class="monitor-card" id="card">
         <h1>
             <span id="connection-dot" class="status-dot"></span>
-            Monitor Sincronizado v2.0
+            Monitor Sincronizado v2.1
         </h1>
         
         <div id="flecha-tendencia">--</div>
         <div id="valor-glucosa">---</div>
         <div class="unidad">mg/dL</div>
 
-        <div id="mensaje-estado" class="bg-offline">Conectando...</div>
+        <div id="mensaje-estado" class="bg-offline">Iniciando sistema...</div>
 
         <!-- Gráfico de Glucosa -->
         <div class="chart-container">
             <canvas id="glucosaChart"></canvas>
         </div>
+        
+        <div id="debug-log"></div>
 
         <!-- Panel Docente -->
         <div id="panel-docente">
@@ -160,12 +170,13 @@
 
     <script>
         // --- CONFIGURACIÓN MQTT ---
-        const brokerUrl = 'wss://broker.emqx.io:8084/mqtt'; 
-        const topic = 'johana-enfermeria/monitor-v1'; 
+        // Cambiamos a HiveMQ por si EMQX falla en la red de la usuaria
+        const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt'; 
+        const topic = 'johana-enfermeria/monitor-v2'; 
         
         let client;
         let esDocente = false;
-        let chartInstance; // Referencia al gráfico
+        let chartInstance; 
         
         // --- ESTADO DEL PACIENTE ---
         let estado = {
@@ -174,73 +185,95 @@
             ultimoMensaje: "Esperando inicio..."
         };
 
+        function log(msg) {
+            console.log(msg);
+            document.getElementById('debug-log').innerText = msg;
+        }
+
         // --- INICIALIZACIÓN GRÁFICO ---
         function initChart() {
-            const ctx = document.getElementById('glucosaChart').getContext('2d');
-            
-            // Datos iniciales vacíos
-            const data = {
-                labels: Array(20).fill(''), // 20 puntos vacíos iniciales
-                datasets: [{
-                    label: 'Glucosa (mg/dL)',
-                    data: Array(20).fill(null), // Valores nulos para que no pinte nada al inicio
-                    borderColor: '#3498db',
-                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.4, // Curva suave
-                    pointRadius: 2,
-                    fill: true
-                }]
-            };
+            try {
+                const ctx = document.getElementById('glucosaChart').getContext('2d');
+                const data = {
+                    labels: Array(20).fill(''), 
+                    datasets: [{
+                        label: 'Glucosa',
+                        data: Array(20).fill(null),
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        fill: true
+                    }]
+                };
 
-            const config = {
-                type: 'line',
-                data: data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false } // Ocultar leyenda para más limpieza
-                    },
-                    scales: {
-                        y: {
-                            min: 40,
-                            max: 300,
-                            grid: { color: '#f0f0f0' }
+                const config = {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { min: 40, max: 300 },
+                            x: { display: false }
                         },
-                        x: { display: false } // Ocultar eje X (tiempo) para limpieza
-                    },
-                    animation: { duration: 500 } // Animación suave
-                }
-            };
+                        animation: { duration: 500 }
+                    }
+                };
 
-            chartInstance = new Chart(ctx, config);
+                chartInstance = new Chart(ctx, config);
+            } catch (e) {
+                log("Error cargando gráfico: " + e.message);
+            }
         }
 
         // --- INICIALIZACIÓN MQTT ---
         function conectarMQTT() {
-            console.log("Conectando a MQTT...");
-            client = mqtt.connect(brokerUrl);
+            log("Conectando a servidor...");
+            try {
+                client = mqtt.connect(brokerUrl);
 
-            client.on('connect', () => {
-                console.log("Conectado!");
-                document.getElementById('connection-dot').className = "status-dot connected";
-                client.subscribe(topic);
-                if (esDocente) iniciarTransmision();
-                else document.getElementById('mensaje-estado').innerText = "Sincronizado. Esperando datos...";
-            });
+                client.on('connect', () => {
+                    log("Conectado a la nube");
+                    document.getElementById('connection-dot').className = "status-dot connected";
+                    document.getElementById('mensaje-estado').innerText = "En línea. Esperando datos...";
+                    document.getElementById('mensaje-estado').className = "bg-normal";
+                    
+                    client.subscribe(topic, (err) => {
+                        if(err) log("Error suscripción: " + err);
+                    });
+                    
+                    if (esDocente) iniciarTransmision();
+                });
 
-            client.on('message', (topic, message) => {
-                if (!esDocente) {
-                    const datos = JSON.parse(message.toString());
-                    actualizarPantalla(datos);
-                }
-            });
+                client.on('message', (topic, message) => {
+                    try {
+                        const datos = JSON.parse(message.toString());
+                        // Validar datos básicos
+                        if (typeof datos.glucosa === 'number') {
+                            if (!esDocente) actualizarPantalla(datos);
+                        }
+                    } catch (e) {
+                        log("Error datos recibidos");
+                    }
+                });
 
-            client.on('offline', () => {
-                document.getElementById('connection-dot').className = "status-dot disconnected";
-                document.getElementById('mensaje-estado').innerText = "Desconectado...";
-            });
+                client.on('error', (err) => {
+                    log("Error conexión: " + err.message);
+                    document.getElementById('connection-dot').className = "status-dot error";
+                });
+
+                client.on('offline', () => {
+                    log("Sin conexión");
+                    document.getElementById('connection-dot').className = "status-dot disconnected";
+                    document.getElementById('mensaje-estado').innerText = "Reconectando...";
+                    document.getElementById('mensaje-estado').className = "bg-offline";
+                });
+            } catch (e) {
+                log("Error fatal MQTT: " + e.message);
+            }
         }
 
         // --- LÓGICA DOCENTE ---
@@ -258,6 +291,7 @@
         }
 
         function iniciarTransmision() {
+            log("Transmitiendo datos...");
             setInterval(() => {
                 simularFisiologia();
                 if(client && client.connected) {
@@ -296,29 +330,27 @@
 
             displayValor.innerText = val;
 
-            // 1. Actualizar Gráfico
+            // Actualizar Gráfico
             if (chartInstance) {
                 const labels = chartInstance.data.labels;
                 const data = chartInstance.data.datasets[0].data;
 
-                // Rotar array: sacar el primero, meter el nuevo al final
                 labels.shift();
-                labels.push(''); // Nueva etiqueta vacía
+                labels.push('');
                 data.shift();
                 data.push(val);
 
-                // Cambiar color del gráfico según estado
-                let color = '#2ecc71'; // Verde
-                if (val < 70) color = '#c0392b'; // Rojo
-                else if (val > 180) color = '#e67e22'; // Naranja
+                let color = '#2ecc71'; 
+                if (val < 70) color = '#c0392b';
+                else if (val > 180) color = '#e67e22';
                 
                 chartInstance.data.datasets[0].borderColor = color;
-                chartInstance.data.datasets[0].backgroundColor = color + '20'; // Transparente
+                chartInstance.data.datasets[0].backgroundColor = color + '20'; 
 
-                chartInstance.update('none'); // Update sin animación pesada
+                chartInstance.update('none');
             }
 
-            // 2. Colores Texto
+            // Colores Texto
             displayMensaje.className = "";
             if (val < 70) {
                 displayValor.style.color = "#c0392b";
@@ -335,7 +367,7 @@
                 displayMensaje.classList.add("bg-normal");
             }
 
-            // 3. Flechas
+            // Flechas
             const t = datos.tendencia;
             if (t > 2) displayFlecha.innerText = "⬆️";
             else if (t > 0.5) displayFlecha.innerText = "↗️";
@@ -345,8 +377,10 @@
         }
 
         // Arrancar
-        initChart(); // Iniciar gráfico primero
-        conectarMQTT();
+        window.onload = function() {
+            initChart();
+            conectarMQTT();
+        };
 
     </script>
 </body>
