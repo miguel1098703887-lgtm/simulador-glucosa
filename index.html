@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Clínico v5.8 (Estable)</title>
+    <title>Monitor Clínico v5.9 (Zoom Interactivo)</title>
     <!-- MQTT para sincronización (Versión ligera) -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js (CDN optimizado) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Plugins para Zoom y Gestos -->
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     
@@ -263,6 +266,10 @@
         <div class="chart-container">
             <canvas id="glucosaChart"></canvas>
         </div>
+        
+        <div style="font-size: 0.7rem; color: #666; margin-bottom: 10px;">
+            🔍 Pellizca para Zoom • Desliza para Historial
+        </div>
 
         <!-- Log -->
         <div id="historial-container">
@@ -304,14 +311,13 @@
     </div>
 
     <script>
-        // --- SISTEMA OPTIMIZADO V5.8 ---
+        // --- SISTEMA OPTIMIZADO V5.9 (Zoom Enabled) ---
         
         // 1. Configuración Global
         const CONFIG = {
             broker: 'wss://broker.emqx.io:8084/mqtt',
-            topic: 'johana-enfermeria/monitor-v5', // Canal limpio v5
-            updateInterval: 60000, // 1 minuto (Real Time)
-            animDuration: 800,
+            topic: 'johana-enfermeria/monitor-v5', 
+            updateInterval: 60000, 
             timezone: 'America/Bogota'
         };
 
@@ -335,7 +341,7 @@
                 audioCtx.resume();
             }
             audioEnabled = true;
-            beep(600, 100, 0.1); // Test
+            beep(600, 100, 0.1); 
             document.getElementById('btn-audio').style.display = 'none';
         }
 
@@ -352,23 +358,19 @@
             osc.stop(audioCtx.currentTime + (duration/1000));
         }
 
-        // 3. Lógica de Negocio (Fisiología)
+        // 3. Lógica de Negocio
         function simularFisiologia() {
-            // Modelo matemático simplificado
             const ruido = (Math.random() - 0.5) * 2;
             state.glucosa += state.tendencia + ruido;
 
-            // Homeostasis (El cuerpo intenta volver al equilibrio)
             if (state.tendencia > 0) state.tendencia -= 0.1;
             if (state.tendencia < 0) state.tendencia += 0.1;
 
-            // Límites fisiológicos (Coma / Muerte)
             state.glucosa = Math.max(20, Math.min(600, state.glucosa));
-
             actualizarUI(state);
         }
 
-        // 4. Conexión MQTT (Robusta)
+        // 4. Conexión MQTT
         function conectar() {
             const clientId = 'client-' + Math.random().toString(16).substr(2, 6);
             client = mqtt.connect(CONFIG.broker, { 
@@ -380,7 +382,6 @@
             client.on('connect', () => {
                 document.getElementById('status-badge').className = 'status-badge connected';
                 document.getElementById('status-text').innerText = esDocente ? "Transmitiendo" : "En Línea";
-                
                 client.subscribe(CONFIG.topic);
                 if(esDocente) loopTransmision();
             });
@@ -388,15 +389,10 @@
             client.on('message', (topic, msg) => {
                 try {
                     const data = JSON.parse(msg.toString());
-                    
-                    // Si llega un evento nuevo, registrarlo
-                    // FIX: Asegurar que NO se repita usando ID único
                     if (data.evt && data.evtId && data.evtId !== state.lastEventId) {
                         logEvento(data.evt);
                         state.lastEventId = data.evtId;
                     }
-                    
-                    // Si soy alumno, actualizo mi pantalla
                     if (!esDocente) actualizarUI(data);
                 } catch(e) { console.error(e); }
             });
@@ -407,11 +403,9 @@
             });
         }
 
-        // 5. Ciclo de Transmisión (Solo Docente)
+        // 5. Ciclo de Transmisión
         function loopTransmision() {
-            simularFisiologia(); // Primer tick
-            
-            // Loop exacto
+            simularFisiologia(); 
             setInterval(() => {
                 simularFisiologia();
                 publicar();
@@ -425,7 +419,6 @@
         }
 
         function emitirEvento(tipo) {
-            // Evitar doble clic (Debounce de 1 segundo)
             const now = Date.now();
             if (window.lastClickTime && (now - window.lastClickTime < 1000)) return;
             window.lastClickTime = now;
@@ -452,10 +445,7 @@
             state.evt = msg;
             state.evtId = now;
             
-            // FIX: Solo registrar en log si viene del servidor para evitar duplicados locales
-            // logEvento(msg); 
-            
-            publicar();     // Remoto
+            publicar();
             actualizarUI(state);
         }
 
@@ -466,40 +456,33 @@
             const elMsg = document.getElementById('mensaje-estado');
             const elFlecha = document.getElementById('flecha-tendencia');
 
-            // Actualizar número
             elVal.innerText = val;
-
-            // Lógica Clínica
             elMsg.className = ''; 
-            document.getElementById('alerta-cetonas').style.display = 'none'; // Reset cetonas
+            document.getElementById('alerta-cetonas').style.display = 'none';
 
-            // El color del número base ahora es AZUL (#3498db)
-            // Solo cambia si hay ALARMA
             elVal.style.color = '#3498db'; 
 
             if (val < 70) {
-                elVal.style.color = 'var(--danger)'; // Rojo
+                elVal.style.color = 'var(--danger)';
                 elMsg.innerText = "HIPOGLUCEMIA";
                 elMsg.classList.add('state-danger');
-                gestionarAlarma(true); // Alarma grave
-            } else if (val > 300) { // Cetonas y Emergencia
-                elVal.style.color = 'var(--ketone)'; // Morado
+                gestionarAlarma(true);
+            } else if (val > 300) {
+                elVal.style.color = 'var(--ketone)';
                 elMsg.innerText = "HIPERGLUCEMIA SEVERA";
                 elMsg.style.background = 'rgba(155, 89, 182, 0.2)';
                 document.getElementById('alerta-cetonas').style.display = 'block';
                 gestionarAlarma(true); 
             } else if (val > 180) {
-                elVal.style.color = 'var(--warning)'; // Naranja
+                elVal.style.color = 'var(--warning)';
                 elMsg.innerText = "HIPERGLUCEMIA";
                 elMsg.classList.add('state-warn');
-                gestionarAlarma(false); // Alarma leve
+                gestionarAlarma(false);
             } else {
-                // Rango Normal -> Azul
                 elMsg.innerText = "EN RANGO";
                 elMsg.classList.add('state-normal');
             }
 
-            // Flechas
             const t = data.tendencia;
             if (t > 2) elFlecha.innerText = "⬆️";
             else if (t > 0.5) elFlecha.innerText = "↗️";
@@ -507,25 +490,31 @@
             else if (t < -0.5) elFlecha.innerText = "↘️";
             else elFlecha.innerText = "➡️";
 
-            // Chart Update (Optimizado)
+            // Chart Update (Zoom-Compatible)
             if(chart) {
-                chart.data.labels.push('');
+                const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                chart.data.labels.push(timeStr);
                 chart.data.datasets[0].data.push(val);
-                if(chart.data.labels.length > 20) {
+                
+                // Mantener histórico más largo para permitir scroll atrás (60 mins)
+                if(chart.data.labels.length > 60) {
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                 }
-                // Color fijo verde neón siempre
+                
                 chart.data.datasets[0].borderColor = '#2ecc71'; 
                 chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
-                chart.update('none'); // Sin animación pesada
+                
+                // Si el usuario NO está haciendo zoom, actualizamos la vista
+                if (!chart.isZoomedOrPanned()) {
+                    chart.update('none');
+                }
             }
         }
 
         function gestionarAlarma(esGrave) {
             const now = Date.now();
-            if (now - lastBeep < 5000) return; // Máximo 1 pitido cada 5 seg
-            
+            if (now - lastBeep < 5000) return;
             if (esGrave) {
                 beep(880, 100); setTimeout(()=>beep(880, 100), 150);
             } else {
@@ -544,39 +533,91 @@
 
         // 7. Inicialización
         function init() {
-            // Reloj
             setInterval(() => {
                 const now = new Date();
                 document.getElementById('reloj-pantalla').innerText = now.toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit'});
                 document.getElementById('fecha-pantalla').innerText = now.toLocaleDateString('es-CO', {day:'numeric', month:'short'});
             }, 1000);
 
-            // Chart
             const ctx = document.getElementById('glucosaChart').getContext('2d');
             Chart.defaults.color = '#555';
             Chart.defaults.borderColor = '#333';
+            
+            // Configuración del Gráfico con ZOOM
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: Array(20).fill(''),
+                    labels: [], // Se llena dinámicamente
                     datasets: [{
                         label: 'Glucosa',
-                        data: Array(20).fill(null),
-                        borderColor: '#2ecc71', // Verde Inicial
-                        backgroundColor: 'rgba(46, 204, 113, 0.1)', // Sombra Verde
+                        data: [],
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
                         borderWidth: 3,
-                        pointRadius: 0,
-                        tension: 0.4
+                        pointRadius: 3, // Puntos visibles para tocar
+                        tension: 0.4,
+                        fill: true
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { min: 20, max: 400 }, x: { display: false } },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    },
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            intersect: false,
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            titleFont: { size: 14 },
+                            bodyFont: { size: 16, weight: 'bold' },
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + ' mg/dL';
+                                }
+                            }
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x', // Scroll horizontal
+                            },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true }, // Pellizcar en celular
+                                mode: 'x',
+                            }
+                        }
+                    },
+                    scales: { 
+                        y: { min: 20, max: 400, grid: { color: '#333' } }, 
+                        x: { 
+                            display: true, 
+                            grid: { display: false },
+                            ticks: { 
+                                color: '#666',
+                                maxTicksLimit: 6 
+                            }
+                        } 
+                    },
                     animation: false
                 }
             });
+
+            // Precargar datos vacíos (historial visual)
+            const now = Date.now();
+            for(let i=30; i>0; i--) {
+                const t = new Date(now - (i * 60000)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                chart.data.labels.push(t);
+                chart.data.datasets[0].data.push(null);
+            }
+            chart.update();
 
             conectar();
         }
@@ -587,8 +628,7 @@
                 esDocente = true;
                 document.getElementById('panel-docente').style.display = 'block';
                 document.getElementById('btn-admin').style.display = 'none';
-                alert("✅ MODO DOCENTE ACTIVO\nLa simulación depende de este dispositivo.");
-                // Wake Lock API
+                alert("✅ MODO DOCENTE ACTIVO");
                 if('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
                 loopTransmision();
             } else {
