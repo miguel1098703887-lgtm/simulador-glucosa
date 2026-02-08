@@ -358,11 +358,14 @@
             client.on('message', (topic, msg) => {
                 try {
                     const data = JSON.parse(msg.toString());
+                    
                     // Si llega un evento nuevo, registrarlo
-                    if (data.evt && data.evtId > state.lastEventId) {
+                    // FIX: Asegurar que NO se repita usando ID único
+                    if (data.evt && data.evtId && data.evtId !== state.lastEventId) {
                         logEvento(data.evt);
                         state.lastEventId = data.evtId;
                     }
+                    
                     // Si soy alumno, actualizo mi pantalla
                     if (!esDocente) actualizarUI(data);
                 } catch(e) { console.error(e); }
@@ -418,7 +421,10 @@
 
             state.evt = msg;
             state.evtId = now;
-            logEvento(msg); // Local
+            
+            // FIX: Solo registrar en log si viene del servidor para evitar duplicados locales
+            // logEvento(msg); 
+            
             publicar();     // Remoto
             actualizarUI(state);
         }
