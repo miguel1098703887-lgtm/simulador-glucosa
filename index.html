@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Sincronizado v2.1</title>
+    <title>Monitor Sincronizado v3.2 (Audio)</title>
     <!-- MQTT para sincronización -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js para gráficos -->
@@ -81,6 +81,23 @@
             width: 100%;
             margin-bottom: 20px;
         }
+
+        #mensaje-audio {
+            font-size: 0.9rem;
+            margin-top: 5px;
+            color: #888;
+        }
+
+        #btn-audio {
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
         
         #debug-log {
             font-size: 0.8rem;
@@ -140,7 +157,7 @@
     <div class="monitor-card" id="card">
         <h1>
             <span id="connection-dot" class="status-dot"></span>
-            Monitor Sincronizado v2.1
+            Monitor Sincronizado v3.2
         </h1>
         
         <div id="flecha-tendencia">--</div>
@@ -148,6 +165,10 @@
         <div class="unidad">mg/dL</div>
 
         <div id="mensaje-estado" class="bg-offline">Iniciando sistema...</div>
+
+        <!-- Control Audio -->
+        <button id="btn-audio" onclick="habilitarAudio()">🔊 Activar Sonido Alarma</button>
+        <div id="mensaje-audio">Audio desactivado</div>
 
         <!-- Gráfico de Glucosa -->
         <div class="chart-container">
@@ -178,16 +199,73 @@
     </div>
 
     <script>
+        // --- AUDIO SYSTEM (Oscilador Médico) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let audioEnabled = false;
+        let lastBeepTime = 0;
+
+        function habilitarAudio() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            audioEnabled = true;
+            // Prueba de sonido
+            beep(600, 100, 0.1); 
+            
+            document.getElementById('btn-audio').style.display = 'none';
+            document.getElementById('mensaje-audio').innerText = "✅ Audio Activado (Sonará en alarma)";
+            document.getElementById('mensaje-audio').style.color = "#27ae60";
+        }
+
+        function beep(freq = 800, duration = 150, vol = 1.0) {
+            if (!audioEnabled) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = freq;
+            
+            gainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (duration/1000));
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + (duration/1000));
+        }
+
+        function checkAlarm(val) {
+            const now = Date.now();
+            // Solo pitar cada 2 segundos máximo
+            if (now - lastBeepTime < 2000) return;
+
+            if (val < 50) {
+                // Alarma Hipoglucemia (Aguda, rápida)
+                // Patrón: Beep-Beep-Beep (Rápido)
+                beep(880, 100);
+                setTimeout(() => beep(880, 100), 150);
+                setTimeout(() => beep(880, 100), 300);
+                lastBeepTime = now;
+            } else if (val > 200) {
+                // Alarma Hiperglucemia (Grave, lenta)
+                // Patrón: Beep... Beep...
+                beep(440, 300);
+                setTimeout(() => beep(440, 300), 500);
+                lastBeepTime = now;
+            }
+        }
+
         // --- CONFIGURACIÓN MQTT ---
-        // Volvemos a EMQX que suele ser más estable, pero con configuración robusta
         const brokerUrl = 'wss://broker.emqx.io:8084/mqtt'; 
-        const topic = 'johana-enfermeria/monitor-v3'; // Nuevo canal v3 para limpiar
+        const topic = 'johana-enfermeria/monitor-v3'; 
         
         let client;
         let esDocente = false;
         let chartInstance; 
         
-        // Generar ID único para evitar desconexiones por colisión
+        // Generar ID único
         const myClientId = 'client-' + Math.random().toString(16).substr(2, 8);
 
         // --- ESTADO DEL PACIENTE ---
@@ -245,7 +323,6 @@
         function conectarMQTT() {
             log("Conectando...");
             try {
-                // Configuración explícita de conexión
                 client = mqtt.connect(brokerUrl, {
                     clientId: myClientId,
                     clean: true,
@@ -275,7 +352,10 @@
                     try {
                         const datos = JSON.parse(message.toString());
                         if (typeof datos.glucosa === 'number') {
-                            if (!esDocente) actualizarPantalla(datos);
+                            if (!esDocente) {
+                                actualizarPantalla(datos);
+                                checkAlarm(datos.glucosa); // Comprobar audio
+                            }
                         }
                     } catch (e) {
                         log("Error datos: " + e.message);
@@ -293,10 +373,6 @@
                     document.getElementById('mensaje-estado').innerText = "Buscando red...";
                 });
                 
-                client.on('reconnect', () => {
-                   log("Reconectando..."); 
-                });
-                
             } catch (e) {
                 log("Error fatal MQTT: " + e.message);
             }
@@ -311,11 +387,8 @@
                 document.querySelector('.btn-admin').style.display = "none";
                 alert("Modo Docente Activado.\n\nIMPORTANTE:\n⚠️ NO APAGUES LA PANTALLA DE ESTE DISPOSITIVO.\n⚠️ Si se apaga o cambias de pestaña, la simulación se detendrá.");
                 
-                // Forzar WakeLock si es posible (Chrome/Android)
                 if ('wakeLock' in navigator) {
-                    navigator.wakeLock.request('screen').then(() => {
-                        log("Pantalla mantenida encendida");
-                    }).catch(() => {});
+                    navigator.wakeLock.request('screen').then(() => {}).catch(() => {});
                 }
                 
                 iniciarTransmision();
@@ -345,24 +418,19 @@
         }
 
         function emitirEvento(tipo) {
-            // Manejo de eventos
             if (tipo === 'insulina_custom') {
                 const u = parseFloat(document.getElementById('input-insulina').value) || 0;
-                // Fórmula: 1 UI baja la tendencia en -0.5 (mg/dL por tick)
-                // Si el paciente está subiendo (+2.0), con 4 UI (-2.0) se estabiliza.
-                // Con 10 UI (-5.0), empieza a caer rápido.
                 estado.tendencia -= (u * 0.5);
                 alert(`Administradas ${u} UI. La tendencia cambiará en -${(u*0.5).toFixed(1)}.`);
             } else if (tipo === 'insulina') {
                 estado.tendencia = -3.5;
             } else if (tipo === 'carbo') {
-                estado.tendencia += 4.0; // Ingesta sube la glucosa
+                estado.tendencia += 4.0; 
             } else if (tipo === 'reset') {
                 estado.glucosa = 110;
                 estado.tendencia = 0;
             }
             
-            // Publicar inmediatamente
             if(client && client.connected) {
                 client.publish(topic, JSON.stringify(estado));
             }
@@ -378,7 +446,6 @@
 
             displayValor.innerText = val;
 
-            // Actualizar Gráfico
             if (chartInstance) {
                 const labels = chartInstance.data.labels;
                 const data = chartInstance.data.datasets[0].data;
@@ -415,7 +482,6 @@
                 displayMensaje.classList.add("bg-normal");
             }
 
-            // Flechas
             const t = datos.tendencia;
             if (t > 2) displayFlecha.innerText = "⬆️";
             else if (t > 0.5) displayFlecha.innerText = "↗️";
@@ -424,9 +490,7 @@
             else displayFlecha.innerText = "➡️";
         }
 
-        // Arrancar
         window.onload = function() {
-            // Un pequeño retraso para asegurar que las librerías cargaron
             setTimeout(() => {
                 initChart();
                 conectarMQTT();
