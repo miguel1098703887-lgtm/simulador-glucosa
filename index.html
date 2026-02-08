@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Sincronizado - Enfermería</title>
+    <!-- MQTT para sincronización -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -16,7 +19,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             color: #333;
         }
 
@@ -26,7 +29,7 @@
             border-radius: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             width: 90%;
-            max-width: 400px;
+            max-width: 500px; /* Un poco más ancho para el gráfico */
             transition: all 0.3s ease;
         }
 
@@ -51,36 +54,45 @@
         }
 
         #valor-glucosa {
-            font-size: 6rem;
+            font-size: 5rem;
             font-weight: bold;
             color: #333;
             line-height: 1;
             margin: 10px 0;
         }
 
-        .unidad { font-size: 1.5rem; color: #888; }
+        .unidad { font-size: 1.2rem; color: #888; }
 
         #flecha-tendencia {
-            font-size: 3rem;
-            height: 50px;
+            font-size: 2.5rem;
+            height: 45px;
             display: block;
             margin-top: -10px;
         }
 
         #mensaje-estado {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: bold;
             padding: 10px;
             border-radius: 10px;
             margin-top: 15px;
             display: inline-block;
             width: 100%;
+            margin-bottom: 20px;
+        }
+
+        /* Estilos del Gráfico */
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+            margin-bottom: 20px;
         }
 
         /* Panel Docente (Oculto por defecto) */
         #panel-docente {
             display: none;
-            margin-top: 30px;
+            margin-top: 20px;
             border-top: 2px dashed #ccc;
             padding-top: 20px;
             width: 100%;
@@ -129,6 +141,11 @@
 
         <div id="mensaje-estado" class="bg-offline">Conectando...</div>
 
+        <!-- Gráfico de Glucosa -->
+        <div class="chart-container">
+            <canvas id="glucosaChart"></canvas>
+        </div>
+
         <!-- Panel Docente -->
         <div id="panel-docente">
             <h3>👩‍⚕️ Panel de Control (Docente)</h3>
@@ -143,21 +160,64 @@
 
     <script>
         // --- CONFIGURACIÓN MQTT ---
-        // Usamos un broker público gratuito sobre WebSockets (SSL)
         const brokerUrl = 'wss://broker.emqx.io:8084/mqtt'; 
-        const topic = 'johana-enfermeria/monitor-v1'; // Canal único para tu clase
+        const topic = 'johana-enfermeria/monitor-v1'; 
         
         let client;
         let esDocente = false;
+        let chartInstance; // Referencia al gráfico
         
-        // --- ESTADO DEL PACIENTE (Solo importa si eres Docente) ---
+        // --- ESTADO DEL PACIENTE ---
         let estado = {
             glucosa: 110.0,
-            tendencia: 0.0, // Cambio por tick
+            tendencia: 0.0,
             ultimoMensaje: "Esperando inicio..."
         };
 
-        // --- INICIALIZACIÓN ---
+        // --- INICIALIZACIÓN GRÁFICO ---
+        function initChart() {
+            const ctx = document.getElementById('glucosaChart').getContext('2d');
+            
+            // Datos iniciales vacíos
+            const data = {
+                labels: Array(20).fill(''), // 20 puntos vacíos iniciales
+                datasets: [{
+                    label: 'Glucosa (mg/dL)',
+                    data: Array(20).fill(null), // Valores nulos para que no pinte nada al inicio
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4, // Curva suave
+                    pointRadius: 2,
+                    fill: true
+                }]
+            };
+
+            const config = {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false } // Ocultar leyenda para más limpieza
+                    },
+                    scales: {
+                        y: {
+                            min: 40,
+                            max: 300,
+                            grid: { color: '#f0f0f0' }
+                        },
+                        x: { display: false } // Ocultar eje X (tiempo) para limpieza
+                    },
+                    animation: { duration: 500 } // Animación suave
+                }
+            };
+
+            chartInstance = new Chart(ctx, config);
+        }
+
+        // --- INICIALIZACIÓN MQTT ---
         function conectarMQTT() {
             console.log("Conectando a MQTT...");
             client = mqtt.connect(brokerUrl);
@@ -165,17 +225,12 @@
             client.on('connect', () => {
                 console.log("Conectado!");
                 document.getElementById('connection-dot').className = "status-dot connected";
-                
-                // Todos se suscriben para escuchar
                 client.subscribe(topic);
-                
-                // Si ya soy docente, empiezo a transmitir
                 if (esDocente) iniciarTransmision();
                 else document.getElementById('mensaje-estado').innerText = "Sincronizado. Esperando datos...";
             });
 
             client.on('message', (topic, message) => {
-                // Si soy Alumno, actualizo mi pantalla con lo que llega
                 if (!esDocente) {
                     const datos = JSON.parse(message.toString());
                     actualizarPantalla(datos);
@@ -188,16 +243,14 @@
             });
         }
 
-        // --- LÓGICA DOCENTE (El Servidor es tu celular) ---
+        // --- LÓGICA DOCENTE ---
         function activarModoDocente() {
             const pass = prompt("Contraseña de Docente:", "");
-            if (pass === "profe123") { // Contraseña sencilla
+            if (pass === "profe123") {
                 esDocente = true;
                 document.getElementById('panel-docente').style.display = "block";
                 document.querySelector('.btn-admin').style.display = "none";
-                alert("Modo Docente Activado.\n\nTÚ ERES EL SERVIDOR.\nTu celular calculará los datos y los enviará a los alumnos.\nSi cierras esta ventana, la simulación se detiene.");
-                
-                // Comenzar ciclo de vida
+                alert("Modo Docente Activado.\n\nTÚ ERES EL SERVIDOR.");
                 iniciarTransmision();
             } else {
                 alert("Contraseña incorrecta");
@@ -205,10 +258,8 @@
         }
 
         function iniciarTransmision() {
-            // Ciclo de 2 segundos
             setInterval(() => {
                 simularFisiologia();
-                // Publicar estado al canal
                 if(client && client.connected) {
                     client.publish(topic, JSON.stringify(estado));
                 }
@@ -216,57 +267,63 @@
         }
 
         function simularFisiologia() {
-            // 1. Variabilidad
             let ruido = (Math.random() - 0.5); 
-            
-            // 2. Aplicar tendencia
             estado.glucosa += (estado.tendencia + ruido);
-            
-            // 3. Inercia (volver a tendencia 0)
             if (estado.tendencia > 0) estado.tendencia -= 0.1;
             if (estado.tendencia < 0) estado.tendencia += 0.1;
-
-            // 4. Rebotes de seguridad
             if (estado.glucosa < 40) { estado.glucosa = 40; estado.tendencia = 1.0; }
             if (estado.glucosa > 400) { estado.glucosa = 400; estado.tendencia = -1.0; }
-
-            // Actualizar mi propia pantalla también
             actualizarPantalla(estado);
         }
 
         function emitirEvento(tipo) {
-            if (tipo === 'insulina') {
-                estado.tendencia = -3.5; // Bajada fuerte
-            } else if (tipo === 'carbo') {
-                estado.tendencia = 4.0; // Subida fuerte
-            } else if (tipo === 'reset') {
-                estado.glucosa = 110;
-                estado.tendencia = 0;
-            }
-            // Forzar actualización inmediata
+            if (tipo === 'insulina') estado.tendencia = -3.5;
+            else if (tipo === 'carbo') estado.tendencia = 4.0;
+            else if (tipo === 'reset') { estado.glucosa = 110; estado.tendencia = 0; }
+            
             if(client && client.connected) {
                 client.publish(topic, JSON.stringify(estado));
             }
             actualizarPantalla(estado);
         }
 
-        // --- RENDERIZADO (Común para todos) ---
+        // --- RENDERIZADO ---
         function actualizarPantalla(datos) {
             const val = Math.floor(datos.glucosa);
             const displayValor = document.getElementById('valor-glucosa');
             const displayFlecha = document.getElementById('flecha-tendencia');
             const displayMensaje = document.getElementById('mensaje-estado');
-            const card = document.getElementById('card');
 
             displayValor.innerText = val;
 
-            // Colores
+            // 1. Actualizar Gráfico
+            if (chartInstance) {
+                const labels = chartInstance.data.labels;
+                const data = chartInstance.data.datasets[0].data;
+
+                // Rotar array: sacar el primero, meter el nuevo al final
+                labels.shift();
+                labels.push(''); // Nueva etiqueta vacía
+                data.shift();
+                data.push(val);
+
+                // Cambiar color del gráfico según estado
+                let color = '#2ecc71'; // Verde
+                if (val < 70) color = '#c0392b'; // Rojo
+                else if (val > 180) color = '#e67e22'; // Naranja
+                
+                chartInstance.data.datasets[0].borderColor = color;
+                chartInstance.data.datasets[0].backgroundColor = color + '20'; // Transparente
+
+                chartInstance.update('none'); // Update sin animación pesada
+            }
+
+            // 2. Colores Texto
             displayMensaje.className = "";
             if (val < 70) {
                 displayValor.style.color = "#c0392b";
                 displayMensaje.innerText = "⚠️ HIPOGLUCEMIA";
                 displayMensaje.classList.add("bg-peligro");
-                // Vibrar si es celular (solo hipo severa)
                 if (val < 55 && navigator.vibrate) navigator.vibrate(200);
             } else if (val > 180) {
                 displayValor.style.color = "#d35400";
@@ -278,7 +335,7 @@
                 displayMensaje.classList.add("bg-normal");
             }
 
-            // Flechas
+            // 3. Flechas
             const t = datos.tendencia;
             if (t > 2) displayFlecha.innerText = "⬆️";
             else if (t > 0.5) displayFlecha.innerText = "↗️";
@@ -288,6 +345,7 @@
         }
 
         // Arrancar
+        initChart(); // Iniciar gráfico primero
         conectarMQTT();
 
     </script>
