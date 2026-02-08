@@ -160,6 +160,14 @@
 <body>
 
     <div class="monitor-card" id="card">
+        <p style="font-size: 0.7rem; color: #ccc; margin-top: -10px;">Versión 3.5 (Sonido)</p>
+        
+        <!-- Botón Audio Visible y Forzado -->
+        <button id="btn-audio" onclick="habilitarAudio()" style="background: #27ae60; color: white; padding: 15px; font-weight: bold; border-radius: 10px; border: none; width: 100%; margin-bottom: 20px; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            🔊 TOCAR AQUÍ PARA ACTIVAR SONIDO
+        </button>
+        <div id="mensaje-audio" style="margin-bottom: 10px; font-weight: bold;"></div>
+
         <h1>
             <span id="connection-dot" class="status-dot"></span>
             Monitor Sincronizado v3.2
@@ -172,7 +180,6 @@
         <div id="mensaje-estado" class="bg-offline">Iniciando sistema...</div>
 
         <!-- Control Audio -->
-        <button id="btn-audio" onclick="habilitarAudio()">🔊 Activar Sonido Alarma</button>
         <div id="mensaje-audio">Audio desactivado</div>
 
         <!-- Gráfico de Glucosa -->
