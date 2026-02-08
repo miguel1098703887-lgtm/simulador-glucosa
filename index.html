@@ -3,17 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Sincronizado v4.4 (Real-Time)</title>
-    <!-- MQTT para sincronización -->
+    <title>Monitor Clínico v5.0 (Optimized)</title>
+    <!-- MQTT para sincronización (Versión ligera) -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <!-- Chart.js para gráficos -->
+    <!-- Chart.js (CDN optimizado) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-dim: #888;
+            --success: #2ecc71;
+            --warning: #e67e22;
+            --danger: #e74c3c;
+            --info: #3498db;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', sans-serif;
             text-align: center;
-            background-color: #121212; /* Fondo Oscuro */
-            color: #e0e0e0; /* Texto Claro */
+            background-color: var(--bg-color);
+            color: var(--text-main);
             margin: 0;
             padding: 20px;
             display: flex;
@@ -24,579 +38,510 @@
         }
 
         .monitor-card {
-            background: #1e1e1e; /* Tarjeta Oscura */
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            width: 90%;
-            max-width: 500px;
-            transition: all 0.3s ease;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 480px;
             border: 1px solid #333;
         }
 
+        /* Indicador de Estado */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #252525;
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
         .status-dot {
-            height: 10px;
-            width: 10px;
+            height: 8px;
+            width: 8px;
             background-color: #555;
             border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
+            margin-right: 6px;
         }
-        .connected { background-color: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
-        .disconnected { background-color: #e74c3c; }
-        .error { background-color: #e74c3c; }
+        .connected .status-dot { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
+        .disconnected .status-dot { background-color: var(--danger); }
 
-        h1 {
-            color: #bbb;
-            font-size: 1.2rem;
-            margin-bottom: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
+        /* Display Principal */
         #valor-glucosa {
-            font-size: 5rem;
-            font-weight: bold;
-            color: #fff;
+            font-size: 6rem;
+            font-weight: 700;
             line-height: 1;
             margin: 10px 0;
-            text-shadow: 0 0 10px rgba(255,255,255,0.1);
+            letter-spacing: -2px;
+            color: #fff;
+            transition: color 0.5s ease;
         }
 
-        .unidad { font-size: 1.2rem; color: #888; }
+        .unidad { font-size: 1.5rem; color: var(--text-dim); font-weight: 400; }
 
         #flecha-tendencia {
-            font-size: 2.5rem;
-            height: 45px;
+            font-size: 3rem;
+            height: 50px;
+            margin-top: -15px;
             display: block;
-            margin-top: -10px;
-            color: #ddd;
         }
 
         #mensaje-estado {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: bold;
-            padding: 10px;
-            border-radius: 10px;
-            margin-top: 15px;
+            padding: 8px 15px;
+            border-radius: 8px;
+            margin: 15px 0;
             display: inline-block;
-            width: 100%;
-            margin-bottom: 20px;
+            background: #333;
         }
 
-        #mensaje-audio {
-            font-size: 0.9rem;
-            margin-top: 5px;
-            color: #888;
-        }
-
+        /* Botón Audio */
         #btn-audio {
-            background-color: #27ae60;
-            color: white;
+            background: var(--success);
+            color: #000;
             border: none;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 1rem;
+            padding: 12px;
+            border-radius: 8px;
             font-weight: bold;
+            width: 100%;
             cursor: pointer;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            width: 80%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 15px;
+            transition: transform 0.1s;
         }
-        
-        #debug-log {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 10px;
-            height: 20px;
-        }
+        #btn-audio:active { transform: scale(0.98); }
 
-        /* Estilos del Gráfico */
+        /* Gráfico */
         .chart-container {
             position: relative;
-            height: 200px;
+            height: 180px;
             width: 100%;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
-        /* Historial Clínico */
+        /* Historial */
         #historial-container {
-            margin-top: 20px;
-            max-height: 150px;
+            max-height: 120px;
             overflow-y: auto;
             text-align: left;
-            border-top: 1px solid #444;
+            border-top: 1px solid #333;
             padding-top: 10px;
-            font-size: 0.9rem;
-            width: 100%;
-            color: #ccc;
+            font-size: 0.85rem;
+            color: #aaa;
         }
-        .log-entry {
-            padding: 5px 0;
-            border-bottom: 1px solid #333;
+        .log-entry { 
+            padding: 4px 0; 
+            border-bottom: 1px solid #2a2a2a; 
+            display: flex;
+            justify-content: space-between;
         }
 
-        /* Panel Docente (Oculto por defecto) */
+        /* Panel Docente */
         #panel-docente {
             display: none;
             margin-top: 20px;
-            border-top: 2px dashed #555;
-            padding-top: 20px;
-            width: 100%;
+            border: 1px solid #444;
+            padding: 15px;
             background: #252525;
-            border-radius: 10px;
-            z-index: 100;
-            position: relative;
+            border-radius: 12px;
         }
 
         .control-group {
-            background: #333; 
-            padding: 10px; 
-            border-radius: 8px; 
-            margin-bottom: 10px; 
-            border: 1px solid #444;
+            margin-bottom: 12px;
+        }
+        
+        .control-label {
+            display: block; 
+            font-size: 0.8rem; 
+            font-weight: bold; 
+            margin-bottom: 5px; 
+            text-align: left;
         }
 
         input, select {
-            background: #444;
-            color: white;
-            border: 1px solid #666;
-            border-radius: 5px;
-        }
-
-        .btn {
-            padding: 12px 20px;
-            margin: 5px;
-            border: none;
-            border-radius: 8px;
+            background: #111;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 6px;
             font-size: 1rem;
-            cursor: pointer;
-            color: white;
+        }
+
+        button.action-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
             font-weight: bold;
-            width: 80%;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 5px;
         }
 
-        .btn-insulina { background-color: #c0392b; }
-        .btn-carbo { background-color: #d35400; }
-        .btn-ejercicio { background-color: #2980b9; }
-        .btn-reset { background-color: #7f8c8d; }
-        
-        #btn-admin { 
-            background: #333; color: #aaa; border: 1px solid #444; 
-            font-size: 0.9rem; margin-top: 30px; width: 80%; padding: 15px;
-            font-weight: bold; cursor: pointer; border-radius: 10px;
+        .bg-red { background: var(--danger); }
+        .bg-orange { background: var(--warning); }
+        .bg-blue { background: var(--info); }
+        .bg-grey { background: #7f8c8d; }
+
+        #btn-admin {
+            margin-top: 30px;
+            background: transparent;
+            border: 1px solid #444;
+            color: #666;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
         }
 
-        .bg-normal { background-color: #1e3a29; color: #2ecc71; border: 1px solid #2ecc71; }
-        .bg-alerta { background-color: #3a2a1e; color: #e67e22; border: 1px solid #e67e22; }
-        .bg-peligro { background-color: #3a1e1e; color: #e74c3c; border: 1px solid #e74c3c; }
-        .bg-offline { background-color: #333; color: #888; }
+        /* Clases de Estado */
+        .state-normal { color: var(--success); background: rgba(46, 204, 113, 0.1); }
+        .state-warn { color: var(--warning); background: rgba(230, 126, 34, 0.1); }
+        .state-danger { color: var(--danger); background: rgba(231, 76, 60, 0.1); }
 
     </style>
 </head>
 <body>
 
-    <div class="monitor-card" id="card">
-        <p style="font-size: 0.7rem; color: #666; margin-top: -10px;">Versión 4.4 (Real-Time 1min)</p>
-        
-        <!-- Reloj y Fecha -->
-        <div style="font-family: monospace; color: #888; margin-bottom: 10px;">
-            <div id="fecha-pantalla" style="font-size: 0.9rem;">--/--/----</div>
-            <div id="reloj-pantalla" style="font-size: 1.5rem; font-weight: bold; color: #ddd;">--:--:--</div>
+    <div class="monitor-card">
+        <!-- Header -->
+        <div class="header">
+            <div id="status-badge" class="status-badge disconnected">
+                <span class="status-dot"></span> <span id="status-text">Desconectado</span>
+            </div>
+            <div style="text-align: right;">
+                <div id="fecha-pantalla" style="font-weight: bold;">--/--</div>
+                <div id="reloj-pantalla">--:--</div>
+            </div>
         </div>
-        
-        <!-- Botón Audio Visible y Forzado -->
-        <button id="btn-audio" onclick="habilitarAudio()">
-            🔊 TOCAR AQUÍ PARA ACTIVAR SONIDO
-        </button>
-        <div id="mensaje-audio" style="margin-bottom: 10px; font-weight: bold;"></div>
 
-        <h1>
-            <span id="connection-dot" class="status-dot"></span>
-            Monitor Sincronizado
-        </h1>
-        
+        <!-- Audio Trigger -->
+        <button id="btn-audio" onclick="habilitarAudio()">🔊 Activar Sonido</button>
+
+        <!-- Main Display -->
         <div id="flecha-tendencia">--</div>
         <div id="valor-glucosa">---</div>
         <div class="unidad">mg/dL</div>
+        <div id="mensaje-estado">Conectando...</div>
 
-        <div id="mensaje-estado" class="bg-offline">Iniciando sistema...</div>
-
-        <!-- Gráfico de Glucosa -->
+        <!-- Chart -->
         <div class="chart-container">
             <canvas id="glucosaChart"></canvas>
         </div>
-        
-        <!-- Historial Clínico -->
+
+        <!-- Log -->
         <div id="historial-container">
-            <div style="font-weight: bold; color: #888; margin-bottom: 5px;">📒 Historial Clínico (Tiempo Real)</div>
+            <div style="font-weight: bold; margin-bottom: 5px; color: #fff;">📒 Registro Clínico</div>
             <div id="lista-eventos"></div>
         </div>
-        
-        <div id="debug-log"></div>
 
-        <!-- Panel Docente -->
+        <!-- Admin Panel -->
         <div id="panel-docente">
-            <h3>👩‍⚕️ Panel de Control (Docente)</h3>
-            <p style="font-size: 0.9rem; color: #aaa;">Tú eres el SERVIDOR. No cierres esta ventana.</p>
+            <h3 style="margin-top: 0; color: #fff;">👨‍🏫 Panel Docente</h3>
             
-            <!-- Control de Insulina -->
-            <div class="control-group" style="border-color: #c0392b;">
-                <label style="font-weight: bold; color: #e74c3c; display: block; margin-bottom: 5px;">💉 Insulina Rápida</label>
-                <div style="display: flex; justify-content: center; gap: 5px;">
-                    <input type="number" id="input-insulina" value="5" min="1" max="50" style="width: 60px; padding: 5px; font-size: 1.2rem; text-align: center;">
-                    <button class="btn btn-insulina" style="margin: 0; width: auto; flex-grow: 1;" onclick="emitirEvento('insulina_custom')">ADMINISTRAR</button>
+            <div class="control-group">
+                <span class="control-label" style="color: var(--danger)">💉 INSULINA</span>
+                <div style="display: flex; gap: 5px;">
+                    <input type="number" id="input-insulina" value="5" min="1" max="50" style="width: 60px; text-align: center;">
+                    <button class="action-btn bg-red" onclick="emitirEvento('insulina_custom')">Administrar</button>
                 </div>
             </div>
 
-            <!-- Control de Alimentos -->
-            <div class="control-group" style="border-color: #d35400;">
-                <label style="font-weight: bold; color: #e67e22; display: block; margin-bottom: 5px;">🍔 Ingesta / Carbohidratos</label>
-                <select id="select-comida" style="width: 100%; padding: 10px; margin-bottom: 5px; font-size: 1rem;">
-                    <option value="jugo">🧃 Jugo de Naranja (Rápido +4.0)</option>
+            <div class="control-group">
+                <span class="control-label" style="color: var(--warning)">🍔 INGESTA</span>
+                <select id="select-comida" style="width: 100%;">
+                    <option value="jugo">🧃 Jugo (Rápido +4.0)</option>
                     <option value="manzana">🍎 Manzana (Medio +2.0)</option>
-                    <option value="pizza">🍕 Pizza (Lento y Prolongado +1.5)</option>
+                    <option value="pizza">🍕 Pizza (Lento +1.5)</option>
                 </select>
-                <button class="btn btn-carbo" style="width: 100%;" onclick="emitirEvento('comida')">REGISTRAR INGESTA</button>
+                <button class="action-btn bg-orange" onclick="emitirEvento('comida')">Registrar</button>
             </div>
 
-            <!-- Control de Ejercicio -->
-            <div class="control-group" style="border-color: #2980b9;">
-                <label style="font-weight: bold; color: #3498db; display: block; margin-bottom: 5px;">🏃 Actividad Física</label>
-                <button class="btn btn-ejercicio" style="width: 100%;" onclick="emitirEvento('ejercicio')">INICIAR EJERCICIO (30 min)</button>
+            <div class="control-group">
+                <span class="control-label" style="color: var(--info)">🏃 ACTIVIDAD</span>
+                <button class="action-btn bg-blue" onclick="emitirEvento('ejercicio')">Iniciar Ejercicio (-2.0)</button>
             </div>
 
-            <button class="btn btn-reset" onclick="emitirEvento('reset')">🔄 Resetear Caso (110 mg/dL)</button>
+            <button class="action-btn bg-grey" onclick="emitirEvento('reset')">🔄 Reiniciar Caso</button>
         </div>
-        
-        <button id="btn-admin" onclick="activarModoDocente()">👨‍🏫 Iniciar Control Docente</button>
+
+        <button id="btn-admin" onclick="activarModoDocente()">Modo Docente</button>
     </div>
 
     <script>
-        // --- RELOJ Y FECHA ---
-        function actualizarReloj() {
-            const now = new Date();
-            const opcionesHora = { timeZone: 'America/Bogota', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
-            const opcionesFecha = { timeZone: 'America/Bogota', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            
-            const horaBogota = now.toLocaleTimeString('es-CO', opcionesHora);
-            const fechaBogota = now.toLocaleDateString('es-CO', opcionesFecha);
-            
-            document.getElementById('reloj-pantalla').innerText = horaBogota;
-            document.getElementById('fecha-pantalla').innerText = fechaBogota.charAt(0).toUpperCase() + fechaBogota.slice(1);
-        }
-        setInterval(actualizarReloj, 1000);
-
-        // --- AUDIO SYSTEM ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let audioEnabled = false;
-        let lastBeepTime = 0;
-
-        function habilitarAudio() {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            audioEnabled = true;
-            beep(600, 100, 0.1); 
-            document.getElementById('btn-audio').style.display = 'none';
-            document.getElementById('mensaje-audio').innerText = "✅ Audio Activado";
-            document.getElementById('mensaje-audio').style.color = "#2ecc71";
-        }
-
-        function beep(freq = 800, duration = 150, vol = 1.0) {
-            if (!audioEnabled) return;
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.type = 'sine';
-            oscillator.frequency.value = freq;
-            gainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (duration/1000));
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + (duration/1000));
-        }
-
-        function checkAlarm(val) {
-            const now = Date.now();
-            if (now - lastBeepTime < 2000) return;
-            if (val < 50) {
-                beep(880, 100); setTimeout(() => beep(880, 100), 150); setTimeout(() => beep(880, 100), 300);
-                lastBeepTime = now;
-            } else if (val > 200) {
-                beep(440, 300); setTimeout(() => beep(440, 300), 500);
-                lastBeepTime = now;
-            }
-        }
-
-        // --- CONFIGURACIÓN MQTT ---
-        const brokerUrl = 'wss://broker.emqx.io:8084/mqtt'; 
-        const topic = 'johana-enfermeria/monitor-v4'; 
+        // --- SISTEMA OPTIMIZADO V5.0 ---
         
-        let client;
-        let esDocente = false;
-        let chartInstance; 
-        const myClientId = 'client-' + Math.random().toString(16).substr(2, 8);
-
-        // --- ESTADO DEL PACIENTE ---
-        let estado = {
-            glucosa: 110.0,
-            tendencia: 0.0,
-            ultimoMensaje: "Esperando inicio...",
-            eventos: [] 
+        // 1. Configuración Global
+        const CONFIG = {
+            broker: 'wss://broker.emqx.io:8084/mqtt',
+            topic: 'johana-enfermeria/monitor-v5', // Canal limpio v5
+            updateInterval: 60000, // 1 minuto (Real Time)
+            animDuration: 800,
+            timezone: 'America/Bogota'
         };
 
-        function log(msg) {
-            console.log(msg);
-            document.getElementById('debug-log').innerText = msg + " (ID: " + myClientId.substr(0,4) + ")";
+        let state = {
+            glucosa: 110.0,
+            tendencia: 0.0,
+            lastEventId: 0
+        };
+
+        let client, chart, audioCtx;
+        let esDocente = false;
+        let audioEnabled = false;
+        let lastBeep = 0;
+
+        // 2. Audio Engine (Lazy Load)
+        function habilitarAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioEnabled = true;
+            beep(600, 100, 0.1); // Test
+            document.getElementById('btn-audio').style.display = 'none';
         }
 
-        // --- HISTORIAL ---
-        function agregarEventoLocal(texto) {
-            const now = new Date();
-            const hora = now.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' });
-            const item = `<div class="log-entry"><strong>${hora}</strong> - ${texto}</div>`;
-            const lista = document.getElementById('lista-eventos');
-            lista.innerHTML = item + lista.innerHTML; 
+        function beep(freq, duration, vol=1.0) {
+            if(!audioEnabled) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (duration/1000));
+            osc.start();
+            osc.stop(audioCtx.currentTime + (duration/1000));
         }
 
-        // --- INICIALIZACIÓN GRÁFICO ---
-        function initChart() {
-            try {
-                const ctx = document.getElementById('glucosaChart').getContext('2d');
-                // Configuración Dark Mode para Chart.js
-                Chart.defaults.color = '#888';
-                Chart.defaults.borderColor = '#333';
+        // 3. Lógica de Negocio (Fisiología)
+        function simularFisiologia() {
+            // Modelo matemático simplificado
+            const ruido = (Math.random() - 0.5) * 2;
+            state.glucosa += state.tendencia + ruido;
+
+            // Homeostasis (El cuerpo intenta volver al equilibrio)
+            if (state.tendencia > 0) state.tendencia -= 0.1;
+            if (state.tendencia < 0) state.tendencia += 0.1;
+
+            // Límites fisiológicos (Coma / Muerte)
+            state.glucosa = Math.max(20, Math.min(600, state.glucosa));
+
+            actualizarUI(state);
+        }
+
+        // 4. Conexión MQTT (Robusta)
+        function conectar() {
+            const clientId = 'client-' + Math.random().toString(16).substr(2, 6);
+            client = mqtt.connect(CONFIG.broker, { 
+                clientId, 
+                clean: true, 
+                reconnectPeriod: 5000 
+            });
+
+            client.on('connect', () => {
+                document.getElementById('status-badge').className = 'status-badge connected';
+                document.getElementById('status-text').innerText = esDocente ? "Transmitiendo" : "En Línea";
                 
-                const data = {
-                    labels: Array(20).fill(''), 
-                    datasets: [{
-                        label: 'Glucosa',
-                        data: Array(20).fill(null),
-                        borderColor: '#3498db',
-                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        pointRadius: 2,
-                        fill: true
-                    }]
-                };
-                const config = {
-                    type: 'line',
-                    data: data,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { 
-                            y: { min: 40, max: 300, grid: { color: '#333' } }, 
-                            x: { display: false } 
-                        },
-                        animation: { duration: 500 }
+                client.subscribe(CONFIG.topic);
+                if(esDocente) loopTransmision();
+            });
+
+            client.on('message', (topic, msg) => {
+                try {
+                    const data = JSON.parse(msg.toString());
+                    // Si llega un evento nuevo, registrarlo
+                    if (data.evt && data.evtId > state.lastEventId) {
+                        logEvento(data.evt);
+                        state.lastEventId = data.evtId;
                     }
-                };
-                chartInstance = new Chart(ctx, config);
-            } catch (e) {
-                log("Error cargando gráfico: " + e.message);
-            }
+                    // Si soy alumno, actualizo mi pantalla
+                    if (!esDocente) actualizarUI(data);
+                } catch(e) { console.error(e); }
+            });
+
+            client.on('offline', () => {
+                document.getElementById('status-badge').className = 'status-badge disconnected';
+                document.getElementById('status-text').innerText = "Reconectando...";
+            });
         }
 
-        // --- INICIALIZACIÓN MQTT ---
-        function conectarMQTT() {
-            log("Conectando...");
-            try {
-                client = mqtt.connect(brokerUrl, {
-                    clientId: myClientId,
-                    clean: true,
-                    keepalive: 60,
-                    reconnectPeriod: 2000
-                });
-
-                client.on('connect', () => {
-                    log("Conectado. Suscribiendo...");
-                    document.getElementById('connection-dot').className = "status-dot connected";
-                    
-                    client.subscribe(topic, { qos: 0 }, (err) => {
-                        if(err) log("Error suscripción: " + err.message);
-                        else if (!esDocente) document.getElementById('mensaje-estado').innerText = "En línea. Esperando al docente...";
-                    });
-                    
-                    if (esDocente) iniciarTransmision();
-                });
-
-                client.on('message', (topic, message) => {
-                    try {
-                        const datos = JSON.parse(message.toString());
-                        if (typeof datos.glucosa === 'number') {
-                            if (!esDocente) {
-                                actualizarPantalla(datos);
-                                checkAlarm(datos.glucosa);
-                            }
-                            if (datos.ultimoEvento && datos.ultimoEventoId !== window.lastEventId) {
-                                agregarEventoLocal(datos.ultimoEvento);
-                                window.lastEventId = datos.ultimoEventoId;
-                            }
-                        }
-                    } catch (e) {
-                        log("Error datos: " + e.message);
-                    }
-                });
-
-                client.on('error', (err) => {
-                    log("Error red: " + err.message);
-                    document.getElementById('connection-dot').className = "status-dot error";
-                });
-
-                client.on('offline', () => {
-                    log("Sin conexión / Offline");
-                    document.getElementById('connection-dot').className = "status-dot disconnected";
-                });
-            } catch (e) {
-                log("Error fatal MQTT: " + e.message);
-            }
-        }
-
-        // --- LÓGICA DOCENTE ---
-        function activarModoDocente() {
-            const pass = prompt("Contraseña de Docente:", "");
-            if (pass === "profe123") {
-                esDocente = true;
-                document.getElementById('panel-docente').style.display = "block";
-                document.getElementById('btn-admin').style.display = "none";
-                alert("Modo Docente Activado.\n\nIMPORTANTE:\n⚠️ MANTÉN LA PANTALLA ENCENDIDA.");
-                if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
-                iniciarTransmision();
-            } else {
-                alert("Contraseña incorrecta");
-            }
-        }
-
-        function iniciarTransmision() {
-            log("Transmitiendo datos (Ciclo: 1 min)...");
-            // Ciclo de 60 segundos (Tiempo Real Puro)
+        // 5. Ciclo de Transmisión (Solo Docente)
+        function loopTransmision() {
+            simularFisiologia(); // Primer tick
+            
+            // Loop exacto
             setInterval(() => {
                 simularFisiologia();
-                if(client && client.connected) {
-                    client.publish(topic, JSON.stringify(estado));
-                }
-            }, 60000); // 60000 ms = 1 minuto
-            
-            // Primera actualización inmediata
-            simularFisiologia();
+                publicar();
+            }, CONFIG.updateInterval);
         }
 
-        function simularFisiologia() {
-            // Ajustamos el ruido porque ahora pasa 1 minuto entero
-            let ruido = (Math.random() - 0.5) * 2; 
-            
-            // Tendencia es mg/dL por minuto. Se aplica directa.
-            estado.glucosa += estado.tendencia + ruido; 
-            
-            // Inercia fisiológica (Homeostasis)
-            if (estado.tendencia > 0) estado.tendencia -= 0.1;
-            if (estado.tendencia < 0) estado.tendencia += 0.1;
-            
-            if (estado.glucosa < 40) { estado.glucosa = 40; estado.tendencia = 5.0; } // Rebote adrenalina
-            if (estado.glucosa > 400) { estado.glucosa = 400; estado.tendencia = -5.0; }
-            
-            actualizarPantalla(estado);
+        function publicar() {
+            if(client && client.connected) {
+                client.publish(CONFIG.topic, JSON.stringify(state));
+            }
         }
 
         function emitirEvento(tipo) {
             let msg = "";
-            let eventId = Date.now();
+            const now = Date.now();
 
             if (tipo === 'insulina_custom') {
                 const u = parseFloat(document.getElementById('input-insulina').value) || 0;
-                estado.tendencia -= (u * 1.5);
-                msg = `💉 Administrada Insulina: ${u} UI`;
+                state.tendencia -= (u * 1.5);
+                msg = `💉 Insulina: ${u} UI`;
             } else if (tipo === 'comida') {
-                const comida = document.getElementById('select-comida').value;
-                if(comida === 'jugo') {
-                    estado.tendencia += 4.0;
-                    msg = "🧃 Ingesta: Jugo de Naranja (Rápido)";
-                } else if(comida === 'manzana') {
-                    estado.tendencia += 2.0;
-                    msg = "🍎 Ingesta: Manzana (Medio)";
-                } else if(comida === 'pizza') {
-                    estado.tendencia += 1.5;
-                    msg = "🍕 Ingesta: Pizza (Lento/Grasa)";
-                }
+                const val = document.getElementById('select-comida').value;
+                const map = { 'jugo': 4.0, 'manzana': 2.0, 'pizza': 1.5 };
+                state.tendencia += map[val];
+                msg = `🍔 Ingesta: ${val.toUpperCase()}`;
             } else if (tipo === 'ejercicio') {
-                estado.tendencia -= 2.0; 
-                msg = "🏃 Paciente inició Ejercicio";
+                state.tendencia -= 2.0;
+                msg = "🏃 Ejercicio iniciado";
             } else if (tipo === 'reset') {
-                estado.glucosa = 110;
-                estado.tendencia = 0;
-                msg = "🔄 Caso Reseteado";
+                state.glucosa = 110; state.tendencia = 0;
+                msg = "🔄 Reset";
             }
-            
-            estado.ultimoEvento = msg;
-            estado.ultimoEventoId = eventId;
-            agregarEventoLocal(msg);
 
-            if(client && client.connected) {
-                client.publish(topic, JSON.stringify(estado));
-            }
-            actualizarPantalla(estado);
+            state.evt = msg;
+            state.evtId = now;
+            logEvento(msg); // Local
+            publicar();     // Remoto
+            actualizarUI(state);
         }
 
-        // --- RENDERIZADO ---
-        function actualizarPantalla(datos) {
-            const val = Math.floor(datos.glucosa);
-            checkAlarm(val);
-            document.getElementById('valor-glucosa').innerText = val;
+        // 6. UI & Render
+        function actualizarUI(data) {
+            const val = Math.floor(data.glucosa);
+            const elVal = document.getElementById('valor-glucosa');
+            const elMsg = document.getElementById('mensaje-estado');
+            const elFlecha = document.getElementById('flecha-tendencia');
 
-            if (chartInstance) {
-                const labels = chartInstance.data.labels;
-                const data = chartInstance.data.datasets[0].data;
-                labels.shift(); labels.push('');
-                data.shift(); data.push(val);
-                
-                let color = '#2ecc71'; 
-                if (val < 70) color = '#c0392b';
-                else if (val > 180) color = '#e67e22';
-                
-                chartInstance.data.datasets[0].borderColor = color;
-                chartInstance.data.datasets[0].backgroundColor = color + '20'; 
-                chartInstance.update('none');
-            }
+            // Actualizar número
+            elVal.innerText = val;
 
-            const displayMensaje = document.getElementById('mensaje-estado');
-            const displayValor = document.getElementById('valor-glucosa');
-            displayMensaje.className = "";
-            
+            // Lógica Clínica
+            elMsg.className = ''; 
             if (val < 70) {
-                displayValor.style.color = "#e74c3c"; // Rojo más brillante
-                displayMensaje.innerText = "⚠️ HIPOGLUCEMIA";
-                displayMensaje.classList.add("bg-peligro");
+                elVal.style.color = 'var(--danger)';
+                elMsg.innerText = "HIPOGLUCEMIA";
+                elMsg.classList.add('state-danger');
+                gestionarAlarma(true); // Alarma grave
             } else if (val > 180) {
-                displayValor.style.color = "#e67e22"; // Naranja
-                displayMensaje.innerText = "⚠️ HIPERGLUCEMIA";
-                displayMensaje.classList.add("bg-alerta");
+                elVal.style.color = 'var(--warning)';
+                elMsg.innerText = "HIPERGLUCEMIA";
+                elMsg.classList.add('state-warn');
+                gestionarAlarma(false); // Alarma leve
             } else {
-                displayValor.style.color = "#2ecc71"; // Verde neón
-                displayMensaje.innerText = "✅ EN RANGO";
-                displayMensaje.classList.add("bg-normal");
+                elVal.style.color = 'var(--success)';
+                elMsg.innerText = "EN RANGO";
+                elMsg.classList.add('state-normal');
             }
 
-            const t = datos.tendencia;
-            const displayFlecha = document.getElementById('flecha-tendencia');
-            if (t > 2) displayFlecha.innerText = "⬆️";
-            else if (t > 0.5) displayFlecha.innerText = "↗️";
-            else if (t < -2) displayFlecha.innerText = "⬇️";
-            else if (t < -0.5) displayFlecha.innerText = "↘️";
-            else displayFlecha.innerText = "➡️";
+            // Flechas
+            const t = data.tendencia;
+            if (t > 2) elFlecha.innerText = "⬆️";
+            else if (t > 0.5) elFlecha.innerText = "↗️";
+            else if (t < -2) elFlecha.innerText = "⬇️";
+            else if (t < -0.5) elFlecha.innerText = "↘️";
+            else elFlecha.innerText = "➡️";
+
+            // Chart Update (Optimizado)
+            if(chart) {
+                chart.data.labels.push('');
+                chart.data.datasets[0].data.push(val);
+                if(chart.data.labels.length > 20) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+                chart.data.datasets[0].borderColor = elVal.style.color;
+                chart.update('none'); // Sin animación pesada
+            }
         }
 
-        window.onload = function() {
-            setTimeout(() => {
-                initChart();
-                conectarMQTT();
-            }, 500);
-        };
+        function gestionarAlarma(esGrave) {
+            const now = Date.now();
+            if (now - lastBeep < 5000) return; // Máximo 1 pitido cada 5 seg
+            
+            if (esGrave) {
+                beep(880, 100); setTimeout(()=>beep(880, 100), 150);
+            } else {
+                beep(440, 300);
+            }
+            lastBeep = now;
+        }
+
+        function logEvento(texto) {
+            const hora = new Date().toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit'});
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerHTML = `<span>${texto}</span> <span style="font-size:0.7rem; opacity:0.7">${hora}</span>`;
+            document.getElementById('lista-eventos').prepend(div);
+        }
+
+        // 7. Inicialización
+        function init() {
+            // Reloj
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('reloj-pantalla').innerText = now.toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit'});
+                document.getElementById('fecha-pantalla').innerText = now.toLocaleDateString('es-CO', {day:'numeric', month:'short'});
+            }, 1000);
+
+            // Chart
+            const ctx = document.getElementById('glucosaChart').getContext('2d');
+            Chart.defaults.color = '#555';
+            Chart.defaults.borderColor = '#333';
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(20).fill(''),
+                    datasets: [{
+                        label: 'Glucosa',
+                        data: Array(20).fill(null),
+                        borderColor: '#2ecc71',
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { min: 20, max: 400 }, x: { display: false } },
+                    animation: false
+                }
+            });
+
+            conectar();
+        }
+
+        function activarModoDocente() {
+            const pass = prompt("Clave Docente:");
+            if(pass === "profe123") {
+                esDocente = true;
+                document.getElementById('panel-docente').style.display = 'block';
+                document.getElementById('btn-admin').style.display = 'none';
+                alert("✅ MODO DOCENTE ACTIVO\nLa simulación depende de este dispositivo.");
+                // Wake Lock API
+                if('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
+                loopTransmision();
+            } else {
+                alert("❌ Clave incorrecta");
+            }
+        }
+
+        window.onload = init;
 
     </script>
 </body>
