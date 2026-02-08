@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Clínico v5.9 (Zoom Interactivo)</title>
+    <title>Monitor Clínico v6.0 (Predictivo)</title>
     <!-- MQTT para sincronización (Versión ligera) -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js (CDN optimizado) -->
@@ -268,7 +268,7 @@
         </div>
         
         <div style="font-size: 0.7rem; color: #666; margin-bottom: 10px;">
-            🔍 Pellizca para Zoom • Desliza para Historial
+            🔍 Zoom/Pan • Línea Punteada = Predicción 30min
         </div>
 
         <!-- Log -->
@@ -311,7 +311,7 @@
     </div>
 
     <script>
-        // --- SISTEMA OPTIMIZADO V5.9 (Zoom Enabled) ---
+        // --- SISTEMA OPTIMIZADO V6.0 (Predictivo) ---
         
         // 1. Configuración Global
         const CONFIG = {
@@ -490,22 +490,54 @@
             else if (t < -0.5) elFlecha.innerText = "↘️";
             else elFlecha.innerText = "➡️";
 
-            // Chart Update (Zoom-Compatible)
+            // Actualizar Gráfico + Predicción
             if(chart) {
-                const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                chart.data.labels.push(timeStr);
-                chart.data.datasets[0].data.push(val);
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 
-                // Mantener histórico más largo para permitir scroll atrás (60 mins)
+                // 1. Añadir punto real
+                chart.data.labels.push(timeStr);
+                chart.data.datasets[0].data.push(val); // Serie Real
+                chart.data.datasets[1].data.push(null); // Serie Predicción (hueco)
+
+                // Limpieza de buffer
                 if(chart.data.labels.length > 60) {
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
+                    chart.data.datasets[1].data.shift();
                 }
+
+                // 2. Calcular Predicción (30 min a futuro)
+                // Limpiamos predicciones viejas
+                const lastRealIndex = chart.data.datasets[0].data.length - 1;
+                // Borrar cola de predicción anterior si existe
+                while(chart.data.labels.length > lastRealIndex + 1) {
+                    chart.data.labels.pop();
+                    chart.data.datasets[0].data.pop();
+                    chart.data.datasets[1].data.pop();
+                }
+
+                // Generar nueva proyección
+                let predVal = val;
+                let predTendencia = data.tendencia;
                 
-                chart.data.datasets[0].borderColor = '#2ecc71'; 
-                chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
-                
-                // Si el usuario NO está haciendo zoom, actualizamos la vista
+                // Conectar el último punto real con la predicción
+                chart.data.datasets[1].data[lastRealIndex] = val; 
+
+                for(let i=1; i<=30; i+=5) { // Cada 5 mins
+                    // Simulación rápida de futuro
+                    predVal += (predTendencia * 5); 
+                    if (predTendencia > 0) predTendencia -= 0.5; // Decaimiento inercia
+                    if (predTendencia < 0) predTendencia += 0.5;
+                    
+                    const futureTime = new Date(now.getTime() + i*60000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                    
+                    chart.data.labels.push(futureTime);
+                    chart.data.datasets[0].data.push(null); // Hueco en real
+                    chart.data.datasets[1].data.push(predVal); // Dato en predicción
+                }
+
+                // Render
                 if (!chart.isZoomedOrPanned()) {
                     chart.update('none');
                 }
@@ -547,17 +579,31 @@
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: [], // Se llena dinámicamente
-                    datasets: [{
-                        label: 'Glucosa',
-                        data: [],
-                        borderColor: '#2ecc71',
-                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
-                        borderWidth: 3,
-                        pointRadius: 3, // Puntos visibles para tocar
-                        tension: 0.4,
-                        fill: true
-                    }]
+                    labels: [], 
+                    datasets: [
+                        {
+                            label: 'Glucosa Real',
+                            data: [],
+                            borderColor: '#2ecc71',
+                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: 3,
+                            tension: 0.4,
+                            fill: true,
+                            order: 1
+                        },
+                        {
+                            label: 'Proyección (30 min)',
+                            data: [],
+                            borderColor: 'rgba(255, 255, 255, 0.5)', // Blanco Fantasma
+                            borderDash: [5, 5], // Punteado
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4,
+                            fill: false,
+                            order: 2
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -579,7 +625,7 @@
                             bodyFont: { size: 16, weight: 'bold' },
                             callbacks: {
                                 label: function(context) {
-                                    return context.parsed.y + ' mg/dL';
+                                    return Math.round(context.parsed.y) + ' mg/dL';
                                 }
                             }
                         },
@@ -616,6 +662,7 @@
                 const t = new Date(now - (i * 60000)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 chart.data.labels.push(t);
                 chart.data.datasets[0].data.push(null);
+                chart.data.datasets[1].data.push(null);
             }
             chart.update();
 
