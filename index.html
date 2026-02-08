@@ -327,7 +327,12 @@
 
         // 2. Audio Engine (Lazy Load)
         function habilitarAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
             audioEnabled = true;
             beep(600, 100, 0.1); // Test
             document.getElementById('btn-audio').style.display = 'none';
