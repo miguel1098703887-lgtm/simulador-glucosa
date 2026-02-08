@@ -366,7 +366,6 @@
                         if (typeof datos.glucosa === 'number') {
                             if (!esDocente) {
                                 actualizarPantalla(datos);
-                                checkAlarm(datos.glucosa); // Comprobar audio
                             }
                         }
                     } catch (e) {
@@ -452,6 +451,10 @@
         // --- RENDERIZADO ---
         function actualizarPantalla(datos) {
             const val = Math.floor(datos.glucosa);
+            
+            // Comprobar alarma (Para todos: Docente y Estudiante)
+            checkAlarm(val);
+
             const displayValor = document.getElementById('valor-glucosa');
             const displayFlecha = document.getElementById('flecha-tendencia');
             const displayMensaje = document.getElementById('mensaje-estado');
