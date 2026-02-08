@@ -83,8 +83,9 @@
             line-height: 1;
             margin: 10px 0;
             letter-spacing: -2px;
-            color: #fff;
+            color: #3498db; /* Azul Info */
             transition: color 0.5s ease;
+            text-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
         }
 
         .unidad { font-size: 1.5rem; color: var(--text-dim); font-weight: 400; }
@@ -472,24 +473,28 @@
             elMsg.className = ''; 
             document.getElementById('alerta-cetonas').style.display = 'none'; // Reset cetonas
 
+            // El color del número base ahora es AZUL (#3498db)
+            // Solo cambia si hay ALARMA
+            elVal.style.color = '#3498db'; 
+
             if (val < 70) {
-                elVal.style.color = 'var(--danger)';
+                elVal.style.color = 'var(--danger)'; // Rojo
                 elMsg.innerText = "HIPOGLUCEMIA";
                 elMsg.classList.add('state-danger');
                 gestionarAlarma(true); // Alarma grave
             } else if (val > 300) { // Cetonas y Emergencia
-                elVal.style.color = 'var(--ketone)';
+                elVal.style.color = 'var(--ketone)'; // Morado
                 elMsg.innerText = "HIPERGLUCEMIA SEVERA";
                 elMsg.style.background = 'rgba(155, 89, 182, 0.2)';
                 document.getElementById('alerta-cetonas').style.display = 'block';
                 gestionarAlarma(true); 
             } else if (val > 180) {
-                elVal.style.color = 'var(--warning)';
+                elVal.style.color = 'var(--warning)'; // Naranja
                 elMsg.innerText = "HIPERGLUCEMIA";
                 elMsg.classList.add('state-warn');
                 gestionarAlarma(false); // Alarma leve
             } else {
-                elVal.style.color = 'var(--success)';
+                // Rango Normal -> Azul
                 elMsg.innerText = "EN RANGO";
                 elMsg.classList.add('state-normal');
             }
@@ -515,6 +520,7 @@
                 chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
                 chart.update('none'); // Sin animación pesada
             }
+        }
         }
 
         function gestionarAlarma(esGrave) {
@@ -546,7 +552,7 @@
                 document.getElementById('fecha-pantalla').innerText = now.toLocaleDateString('es-CO', {day:'numeric', month:'short'});
             }, 1000);
 
-            // Chart
+                // Chart
             const ctx = document.getElementById('glucosaChart').getContext('2d');
             Chart.defaults.color = '#555';
             Chart.defaults.borderColor = '#333';
@@ -557,7 +563,8 @@
                     datasets: [{
                         label: 'Glucosa',
                         data: Array(20).fill(null),
-                        borderColor: '#2ecc71',
+                        borderColor: '#2ecc71', // Verde Inicial
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)', // Sombra Verde
                         borderWidth: 3,
                         pointRadius: 0,
                         tension: 0.4
