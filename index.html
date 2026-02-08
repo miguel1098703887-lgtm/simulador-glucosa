@@ -187,14 +187,34 @@
             justify-content: space-between;
         }
 
-        /* Panel Docente */
-        #panel-docente {
+        /* Chat IA */
+        #chat-ia-container {
             display: none;
-            margin-top: 20px;
-            border: 1px solid #444;
-            padding: 15px;
             background: #252525;
+            border: 1px solid #444;
             border-radius: 12px;
+            margin-top: 15px;
+            padding: 15px;
+            text-align: left;
+        }
+        #chat-ia-response {
+            font-size: 0.9rem;
+            color: #ddd;
+            margin-top: 10px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+        #btn-consultar-ia {
+            background: linear-gradient(135deg, #6c5ce7, #a55eea);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 10px;
+            box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
         }
 
         .control-group {
@@ -294,6 +314,13 @@
         <div id="historial-container">
             <div style="font-weight: bold; margin-bottom: 5px; color: #fff;">📒 Registro Clínico</div>
             <div id="lista-eventos"></div>
+        </div>
+
+        <!-- Asistente IA (Simulado MedGemma) -->
+        <button id="btn-consultar-ia" onclick="consultarIA()">🤖 Consultar Asistente Clínico (IA)</button>
+        <div id="chat-ia-container">
+            <div style="font-weight: bold; color: #a55eea; margin-bottom: 5px;">MedGemma-Lite dice:</div>
+            <div id="chat-ia-response">Analizando signos vitales...</div>
         </div>
 
         <!-- Admin Panel -->
@@ -715,6 +742,36 @@
             } else {
                 alert("❌ Clave incorrecta");
             }
+        }
+
+        // --- SISTEMA IA (Simulado MedGemma) ---
+        function consultarIA() {
+            const val = state.glucosa;
+            const iob = state.iob;
+            const container = document.getElementById('chat-ia-container');
+            const resp = document.getElementById('chat-ia-response');
+            
+            container.style.display = 'block';
+            resp.innerHTML = "<i>Procesando con MedGemma...</i>";
+
+            setTimeout(() => {
+                let consejo = "";
+                
+                // Reglas Clínicas Basadas en Guías ADA
+                if (val < 50) {
+                    consejo = "🚨 **EMERGENCIA: Hipoglucemia Severa**\n\n1. Administrar **Glucagón** o Glucosa IV inmediatamente si hay pérdida de conciencia.\n2. Si está consciente: 20-30g de carbohidratos rápidos ya.";
+                } else if (val < 70) {
+                    consejo = "⚠️ **Hipoglucemia**\n\n1. Regla 15/15: Dar 15g de carbohidratos rápidos (ej. 1/2 vaso de jugo).\n2. Esperar 15 mins y reevaluar.\n3. **NO** inyectar insulina.";
+                } else if (val > 300) {
+                    consejo = "🟣 **Riesgo Cetoacidosis**\n\n1. Verificar Cetonas en orina/sangre.\n2. Hidratación agresiva.\n3. Evaluar corrección con insulina rápida (ojo con el IOB: tienes " + iob.toFixed(1) + " UI activas).";
+                } else if (val > 180) {
+                    consejo = "📈 **Hiperglucemia**\n\n1. Considerar corrección según factor de sensibilidad.\n2. Verificar si hay IOB (" + iob.toFixed(1) + " UI) antes de inyectar para evitar hipoglucemia futura.";
+                } else {
+                    consejo = "✅ **Paciente Estable**\n\nEl paciente está en rango objetivo (Euglucemia). Continuar monitoreo.";
+                }
+
+                resp.innerHTML = consejo;
+            }, 800); // Pequeño delay para simular "pensamiento"
         }
 
         window.onload = init;
