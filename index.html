@@ -140,9 +140,10 @@
         .btn-insulina { background-color: #e74c3c; }
         .btn-carbo { background-color: #f39c12; }
         .btn-reset { background-color: #3498db; }
-        .btn-admin { 
-            background: transparent; color: #ccc; border: 1px solid #eee; 
-            font-size: 0.8rem; margin-top: 20px; width: auto;
+        #btn-admin { 
+            background: #f8f9fa; color: #555; border: 1px solid #ddd; 
+            font-size: 0.9rem; margin-top: 30px; width: 80%; padding: 15px;
+            font-weight: bold; cursor: pointer; border-radius: 10px;
         }
 
         .bg-normal { background-color: #e8f8f5; color: #27ae60; }
@@ -195,7 +196,7 @@
             <button class="btn btn-reset" onclick="emitirEvento('reset')">🔄 Resetear (110 mg/dL)</button>
         </div>
         
-        <button class="btn btn-admin" onclick="activarModoDocente()">Soy Docente</button>
+        <button id="btn-admin" onclick="activarModoDocente()">👨‍🏫 Iniciar Control Docente</button>
     </div>
 
     <script>
@@ -384,7 +385,7 @@
             if (pass === "profe123") {
                 esDocente = true;
                 document.getElementById('panel-docente').style.display = "block";
-                document.querySelector('.btn-admin').style.display = "none";
+                document.getElementById('btn-admin').style.display = "none";
                 alert("Modo Docente Activado.\n\nIMPORTANTE:\n⚠️ NO APAGUES LA PANTALLA DE ESTE DISPOSITIVO.\n⚠️ Si se apaga o cambias de pestaña, la simulación se detendrá.");
                 
                 if ('wakeLock' in navigator) {
