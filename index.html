@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Sincronizado v4.0 (Full Sim)</title>
+    <title>Monitor Sincronizado v4.1 (Modo Oscuro)</title>
     <!-- MQTT para sincronización -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js para gráficos -->
@@ -12,7 +12,8 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             text-align: center;
-            background-color: #f0f2f5;
+            background-color: #121212; /* Fondo Oscuro */
+            color: #e0e0e0; /* Texto Claro */
             margin: 0;
             padding: 20px;
             display: flex;
@@ -20,33 +21,33 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            color: #333;
         }
 
         .monitor-card {
-            background: white;
+            background: #1e1e1e; /* Tarjeta Oscura */
             padding: 30px;
             border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             width: 90%;
             max-width: 500px;
             transition: all 0.3s ease;
+            border: 1px solid #333;
         }
 
         .status-dot {
             height: 10px;
             width: 10px;
-            background-color: #bbb;
+            background-color: #555;
             border-radius: 50%;
             display: inline-block;
             margin-right: 5px;
         }
-        .connected { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+        .connected { background-color: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
         .disconnected { background-color: #e74c3c; }
         .error { background-color: #e74c3c; }
 
         h1 {
-            color: #555;
+            color: #bbb;
             font-size: 1.2rem;
             margin-bottom: 5px;
             display: flex;
@@ -57,9 +58,10 @@
         #valor-glucosa {
             font-size: 5rem;
             font-weight: bold;
-            color: #333;
+            color: #fff;
             line-height: 1;
             margin: 10px 0;
+            text-shadow: 0 0 10px rgba(255,255,255,0.1);
         }
 
         .unidad { font-size: 1.2rem; color: #888; }
@@ -69,6 +71,7 @@
             height: 45px;
             display: block;
             margin-top: -10px;
+            color: #ddd;
         }
 
         #mensaje-estado {
@@ -100,12 +103,12 @@
             margin-top: 20px;
             margin-bottom: 10px;
             width: 80%;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         
         #debug-log {
             font-size: 0.8rem;
-            color: #999;
+            color: #666;
             margin-top: 10px;
             height: 20px;
         }
@@ -124,36 +127,43 @@
             max-height: 150px;
             overflow-y: auto;
             text-align: left;
-            border-top: 1px solid #eee;
+            border-top: 1px solid #444;
             padding-top: 10px;
             font-size: 0.9rem;
             width: 100%;
+            color: #ccc;
         }
         .log-entry {
             padding: 5px 0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid #333;
         }
 
         /* Panel Docente (Oculto por defecto) */
         #panel-docente {
             display: none;
             margin-top: 20px;
-            border-top: 2px dashed #ccc;
+            border-top: 2px dashed #555;
             padding-top: 20px;
             width: 100%;
-            background: #fff8f0;
+            background: #252525;
             border-radius: 10px;
-            /* Forzar visibilidad si está activo */
             z-index: 100;
             position: relative;
         }
 
         .control-group {
-            background: #fff; 
+            background: #333; 
             padding: 10px; 
             border-radius: 8px; 
             margin-bottom: 10px; 
-            border: 1px solid #eee;
+            border: 1px solid #444;
+        }
+
+        input, select {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 5px;
         }
 
         .btn {
@@ -168,39 +178,44 @@
             width: 80%;
         }
 
-        .btn-insulina { background-color: #e74c3c; }
-        .btn-carbo { background-color: #f39c12; }
-        .btn-ejercicio { background-color: #3498db; }
-        .btn-reset { background-color: #95a5a6; }
+        .btn-insulina { background-color: #c0392b; }
+        .btn-carbo { background-color: #d35400; }
+        .btn-ejercicio { background-color: #2980b9; }
+        .btn-reset { background-color: #7f8c8d; }
         
         #btn-admin { 
-            background: #f8f9fa; color: #555; border: 1px solid #ddd; 
+            background: #333; color: #aaa; border: 1px solid #444; 
             font-size: 0.9rem; margin-top: 30px; width: 80%; padding: 15px;
             font-weight: bold; cursor: pointer; border-radius: 10px;
         }
 
-        .bg-normal { background-color: #e8f8f5; color: #27ae60; }
-        .bg-alerta { background-color: #fef5e7; color: #d35400; }
-        .bg-peligro { background-color: #fdedec; color: #c0392b; }
-        .bg-offline { background-color: #eee; color: #777; }
+        .bg-normal { background-color: #1e3a29; color: #2ecc71; border: 1px solid #2ecc71; }
+        .bg-alerta { background-color: #3a2a1e; color: #e67e22; border: 1px solid #e67e22; }
+        .bg-peligro { background-color: #3a1e1e; color: #e74c3c; border: 1px solid #e74c3c; }
+        .bg-offline { background-color: #333; color: #888; }
 
     </style>
 </head>
 <body>
 
     <div class="monitor-card" id="card">
-        <p style="font-size: 0.7rem; color: #ccc; margin-top: -10px;">Versión 4.0 (Full Sim)</p>
-        <div id="reloj-pantalla" style="font-size: 1.2rem; font-family: monospace; color: #555; margin-bottom: 10px;">--:--:--</div>
+        <p style="font-size: 0.7rem; color: #666; margin-top: -10px;">Versión 4.1 (Dark Mode + Fecha)</p>
+        
+        <!-- Reloj y Fecha -->
+        <div style="font-family: monospace; color: #888; margin-bottom: 10px;">
+            <div id="fecha-pantalla" style="font-size: 0.9rem;">--/--/----</div>
+            <div id="reloj-pantalla" style="font-size: 1.5rem; font-weight: bold; color: #ddd;">--:--:--</div>
+        </div>
         
         <!-- Botón Audio Visible y Forzado -->
-        <button id="btn-audio" onclick="habilitarAudio()" style="background: #27ae60; color: white; padding: 15px; font-weight: bold; border-radius: 10px; border: none; width: 100%; margin-bottom: 20px; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+        <button id="btn-audio" onclick="habilitarAudio()">
             🔊 TOCAR AQUÍ PARA ACTIVAR SONIDO
         </button>
         <div id="mensaje-audio" style="margin-bottom: 10px; font-weight: bold;"></div>
 
         <h1>
             <span id="connection-dot" class="status-dot"></span>
-            Monitor Sincronizado v4.0
+            Monitor Sincronizado
         </h1>
         
         <div id="flecha-tendencia">--</div>
@@ -216,7 +231,7 @@
         
         <!-- Historial Clínico -->
         <div id="historial-container">
-            <div style="font-weight: bold; color: #666; margin-bottom: 5px;">📒 Historial Clínico (Tiempo Real)</div>
+            <div style="font-weight: bold; color: #888; margin-bottom: 5px;">📒 Historial Clínico (Tiempo Real)</div>
             <div id="lista-eventos"></div>
         </div>
         
@@ -225,11 +240,11 @@
         <!-- Panel Docente -->
         <div id="panel-docente">
             <h3>👩‍⚕️ Panel de Control (Docente)</h3>
-            <p style="font-size: 0.9rem;">Tú eres el SERVIDOR. No cierres esta ventana.</p>
+            <p style="font-size: 0.9rem; color: #aaa;">Tú eres el SERVIDOR. No cierres esta ventana.</p>
             
             <!-- Control de Insulina -->
-            <div class="control-group" style="border-color: #ffcccc;">
-                <label style="font-weight: bold; color: #c0392b; display: block; margin-bottom: 5px;">💉 Insulina Rápida</label>
+            <div class="control-group" style="border-color: #c0392b;">
+                <label style="font-weight: bold; color: #e74c3c; display: block; margin-bottom: 5px;">💉 Insulina Rápida</label>
                 <div style="display: flex; justify-content: center; gap: 5px;">
                     <input type="number" id="input-insulina" value="5" min="1" max="50" style="width: 60px; padding: 5px; font-size: 1.2rem; text-align: center;">
                     <button class="btn btn-insulina" style="margin: 0; width: auto; flex-grow: 1;" onclick="emitirEvento('insulina_custom')">ADMINISTRAR</button>
@@ -237,7 +252,7 @@
             </div>
 
             <!-- Control de Alimentos -->
-            <div class="control-group" style="border-color: #ffe6cc;">
+            <div class="control-group" style="border-color: #d35400;">
                 <label style="font-weight: bold; color: #e67e22; display: block; margin-bottom: 5px;">🍔 Ingesta / Carbohidratos</label>
                 <select id="select-comida" style="width: 100%; padding: 10px; margin-bottom: 5px; font-size: 1rem;">
                     <option value="jugo">🧃 Jugo de Naranja (Rápido +4.0)</option>
@@ -248,8 +263,8 @@
             </div>
 
             <!-- Control de Ejercicio -->
-            <div class="control-group" style="border-color: #cce5ff;">
-                <label style="font-weight: bold; color: #2980b9; display: block; margin-bottom: 5px;">🏃 Actividad Física</label>
+            <div class="control-group" style="border-color: #2980b9;">
+                <label style="font-weight: bold; color: #3498db; display: block; margin-bottom: 5px;">🏃 Actividad Física</label>
                 <button class="btn btn-ejercicio" style="width: 100%;" onclick="emitirEvento('ejercicio')">INICIAR EJERCICIO (30 min)</button>
             </div>
 
@@ -260,12 +275,17 @@
     </div>
 
     <script>
-        // --- RELOJ ---
+        // --- RELOJ Y FECHA ---
         function actualizarReloj() {
             const now = new Date();
-            const opciones = { timeZone: 'America/Bogota', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
-            const horaBogota = now.toLocaleTimeString('es-CO', opciones);
+            const opcionesHora = { timeZone: 'America/Bogota', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            const opcionesFecha = { timeZone: 'America/Bogota', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            
+            const horaBogota = now.toLocaleTimeString('es-CO', opcionesHora);
+            const fechaBogota = now.toLocaleDateString('es-CO', opcionesFecha);
+            
             document.getElementById('reloj-pantalla').innerText = horaBogota;
+            document.getElementById('fecha-pantalla').innerText = fechaBogota.charAt(0).toUpperCase() + fechaBogota.slice(1);
         }
         setInterval(actualizarReloj, 1000);
 
@@ -282,7 +302,7 @@
             beep(600, 100, 0.1); 
             document.getElementById('btn-audio').style.display = 'none';
             document.getElementById('mensaje-audio').innerText = "✅ Audio Activado";
-            document.getElementById('mensaje-audio').style.color = "#27ae60";
+            document.getElementById('mensaje-audio').style.color = "#2ecc71";
         }
 
         function beep(freq = 800, duration = 150, vol = 1.0) {
@@ -313,7 +333,7 @@
 
         // --- CONFIGURACIÓN MQTT ---
         const brokerUrl = 'wss://broker.emqx.io:8084/mqtt'; 
-        const topic = 'johana-enfermeria/monitor-v4'; // Nueva versión v4
+        const topic = 'johana-enfermeria/monitor-v4'; 
         
         let client;
         let esDocente = false;
@@ -325,7 +345,7 @@
             glucosa: 110.0,
             tendencia: 0.0,
             ultimoMensaje: "Esperando inicio...",
-            eventos: [] // Log de eventos
+            eventos: [] 
         };
 
         function log(msg) {
@@ -339,13 +359,17 @@
             const hora = now.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' });
             const item = `<div class="log-entry"><strong>${hora}</strong> - ${texto}</div>`;
             const lista = document.getElementById('lista-eventos');
-            lista.innerHTML = item + lista.innerHTML; // Prepend
+            lista.innerHTML = item + lista.innerHTML; 
         }
 
         // --- INICIALIZACIÓN GRÁFICO ---
         function initChart() {
             try {
                 const ctx = document.getElementById('glucosaChart').getContext('2d');
+                // Configuración Dark Mode para Chart.js
+                Chart.defaults.color = '#888';
+                Chart.defaults.borderColor = '#333';
+                
                 const data = {
                     labels: Array(20).fill(''), 
                     datasets: [{
@@ -366,7 +390,10 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
-                        scales: { y: { min: 40, max: 300 }, x: { display: false } },
+                        scales: { 
+                            y: { min: 40, max: 300, grid: { color: '#333' } }, 
+                            x: { display: false } 
+                        },
                         animation: { duration: 500 }
                     }
                 };
@@ -407,7 +434,6 @@
                                 actualizarPantalla(datos);
                                 checkAlarm(datos.glucosa);
                             }
-                            // Sincronizar log de eventos si hay nuevos
                             if (datos.ultimoEvento && datos.ultimoEventoId !== window.lastEventId) {
                                 agregarEventoLocal(datos.ultimoEvento);
                                 window.lastEventId = datos.ultimoEventoId;
@@ -449,20 +475,18 @@
 
         function iniciarTransmision() {
             log("Transmitiendo datos...");
-            // Minuto a minuto en tiempo real (simulado cada 1 seg para fluidez visual, pero lógica real)
             setInterval(() => {
                 simularFisiologia();
                 if(client && client.connected) {
                     client.publish(topic, JSON.stringify(estado));
                 }
-            }, 1000); // 1 tick = 1 segundo real
+            }, 1000); 
         }
 
         function simularFisiologia() {
-            let ruido = (Math.random() - 0.5) * 0.5; // Menos ruido
-            estado.glucosa += (estado.tendencia / 60) + ruido; // Tendencia es cambio por minuto, dividimos por 60 seg
+            let ruido = (Math.random() - 0.5) * 0.5; 
+            estado.glucosa += (estado.tendencia / 60) + ruido; 
             
-            // Inercia fisiológica
             if (estado.tendencia > 0) estado.tendencia -= 0.05;
             if (estado.tendencia < 0) estado.tendencia += 0.05;
             
@@ -478,8 +502,6 @@
 
             if (tipo === 'insulina_custom') {
                 const u = parseFloat(document.getElementById('input-insulina').value) || 0;
-                // 1 UI baja 50 mg/dL en total, distribuido en el tiempo
-                // Efecto pico: cambio de tendencia de -1.5 por unidad
                 estado.tendencia -= (u * 1.5);
                 msg = `💉 Administrada Insulina: ${u} UI`;
             } else if (tipo === 'comida') {
@@ -495,7 +517,7 @@
                     msg = "🍕 Ingesta: Pizza (Lento/Grasa)";
                 }
             } else if (tipo === 'ejercicio') {
-                estado.tendencia -= 2.0; // Baja constante
+                estado.tendencia -= 2.0; 
                 msg = "🏃 Paciente inició Ejercicio";
             } else if (tipo === 'reset') {
                 estado.glucosa = 110;
@@ -503,10 +525,8 @@
                 msg = "🔄 Caso Reseteado";
             }
             
-            // Registrar evento para enviarlo
             estado.ultimoEvento = msg;
             estado.ultimoEventoId = eventId;
-            
             agregarEventoLocal(msg);
 
             if(client && client.connected) {
@@ -537,17 +557,19 @@
             }
 
             const displayMensaje = document.getElementById('mensaje-estado');
+            const displayValor = document.getElementById('valor-glucosa');
             displayMensaje.className = "";
+            
             if (val < 70) {
-                document.getElementById('valor-glucosa').style.color = "#c0392b";
+                displayValor.style.color = "#e74c3c"; // Rojo más brillante
                 displayMensaje.innerText = "⚠️ HIPOGLUCEMIA";
                 displayMensaje.classList.add("bg-peligro");
             } else if (val > 180) {
-                document.getElementById('valor-glucosa').style.color = "#d35400";
+                displayValor.style.color = "#e67e22"; // Naranja
                 displayMensaje.innerText = "⚠️ HIPERGLUCEMIA";
                 displayMensaje.classList.add("bg-alerta");
             } else {
-                document.getElementById('valor-glucosa').style.color = "#27ae60";
+                displayValor.style.color = "#2ecc71"; // Verde neón
                 displayMensaje.innerText = "✅ EN RANGO";
                 displayMensaje.classList.add("bg-normal");
             }
