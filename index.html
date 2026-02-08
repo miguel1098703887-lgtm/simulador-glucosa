@@ -170,14 +170,17 @@
 
     <script>
         // --- CONFIGURACIÓN MQTT ---
-        // Cambiamos a HiveMQ por si EMQX falla en la red de la usuaria
-        const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt'; 
-        const topic = 'johana-enfermeria/monitor-v2'; 
+        // Volvemos a EMQX que suele ser más estable, pero con configuración robusta
+        const brokerUrl = 'wss://broker.emqx.io:8084/mqtt'; 
+        const topic = 'johana-enfermeria/monitor-v3'; // Nuevo canal v3 para limpiar
         
         let client;
         let esDocente = false;
         let chartInstance; 
         
+        // Generar ID único para evitar desconexiones por colisión
+        const myClientId = 'client-' + Math.random().toString(16).substr(2, 8);
+
         // --- ESTADO DEL PACIENTE ---
         let estado = {
             glucosa: 110.0,
@@ -187,7 +190,7 @@
 
         function log(msg) {
             console.log(msg);
-            document.getElementById('debug-log').innerText = msg;
+            document.getElementById('debug-log').innerText = msg + " (ID: " + myClientId.substr(0,4) + ")";
         }
 
         // --- INICIALIZACIÓN GRÁFICO ---
@@ -231,18 +234,29 @@
 
         // --- INICIALIZACIÓN MQTT ---
         function conectarMQTT() {
-            log("Conectando a servidor...");
+            log("Conectando...");
             try {
-                client = mqtt.connect(brokerUrl);
+                // Configuración explícita de conexión
+                client = mqtt.connect(brokerUrl, {
+                    clientId: myClientId,
+                    clean: true,
+                    keepalive: 60,
+                    reconnectPeriod: 2000
+                });
 
                 client.on('connect', () => {
-                    log("Conectado a la nube");
+                    log("Conectado. Suscribiendo...");
                     document.getElementById('connection-dot').className = "status-dot connected";
-                    document.getElementById('mensaje-estado').innerText = "En línea. Esperando datos...";
-                    document.getElementById('mensaje-estado').className = "bg-normal";
                     
-                    client.subscribe(topic, (err) => {
-                        if(err) log("Error suscripción: " + err);
+                    client.subscribe(topic, { qos: 0 }, (err) => {
+                        if(err) {
+                            log("Error suscripción: " + err.message);
+                        } else {
+                            if (!esDocente) {
+                                document.getElementById('mensaje-estado').innerText = "En línea. Esperando al docente...";
+                                document.getElementById('mensaje-estado').className = "bg-normal";
+                            }
+                        }
                     });
                     
                     if (esDocente) iniciarTransmision();
@@ -251,26 +265,29 @@
                 client.on('message', (topic, message) => {
                     try {
                         const datos = JSON.parse(message.toString());
-                        // Validar datos básicos
                         if (typeof datos.glucosa === 'number') {
                             if (!esDocente) actualizarPantalla(datos);
                         }
                     } catch (e) {
-                        log("Error datos recibidos");
+                        log("Error datos: " + e.message);
                     }
                 });
 
                 client.on('error', (err) => {
-                    log("Error conexión: " + err.message);
+                    log("Error red: " + err.message);
                     document.getElementById('connection-dot').className = "status-dot error";
                 });
 
                 client.on('offline', () => {
-                    log("Sin conexión");
+                    log("Sin conexión / Offline");
                     document.getElementById('connection-dot').className = "status-dot disconnected";
-                    document.getElementById('mensaje-estado').innerText = "Reconectando...";
-                    document.getElementById('mensaje-estado').className = "bg-offline";
+                    document.getElementById('mensaje-estado').innerText = "Buscando red...";
                 });
+                
+                client.on('reconnect', () => {
+                   log("Reconectando..."); 
+                });
+                
             } catch (e) {
                 log("Error fatal MQTT: " + e.message);
             }
@@ -283,7 +300,15 @@
                 esDocente = true;
                 document.getElementById('panel-docente').style.display = "block";
                 document.querySelector('.btn-admin').style.display = "none";
-                alert("Modo Docente Activado.\n\nTÚ ERES EL SERVIDOR.");
+                alert("Modo Docente Activado.\n\nIMPORTANTE:\n⚠️ NO APAGUES LA PANTALLA DE ESTE DISPOSITIVO.\n⚠️ Si se apaga o cambias de pestaña, la simulación se detendrá.");
+                
+                // Forzar WakeLock si es posible (Chrome/Android)
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').then(() => {
+                        log("Pantalla mantenida encendida");
+                    }).catch(() => {});
+                }
+                
                 iniciarTransmision();
             } else {
                 alert("Contraseña incorrecta");
@@ -378,8 +403,11 @@
 
         // Arrancar
         window.onload = function() {
-            initChart();
-            conectarMQTT();
+            // Un pequeño retraso para asegurar que las librerías cargaron
+            setTimeout(() => {
+                initChart();
+                conectarMQTT();
+            }, 500);
         };
 
     </script>
