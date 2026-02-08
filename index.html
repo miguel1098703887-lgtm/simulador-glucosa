@@ -392,8 +392,12 @@
         }
 
         function emitirEvento(tipo) {
-            let msg = "";
+            // Evitar doble clic (Debounce de 1 segundo)
             const now = Date.now();
+            if (window.lastClickTime && (now - window.lastClickTime < 1000)) return;
+            window.lastClickTime = now;
+
+            let msg = "";
 
             if (tipo === 'insulina_custom') {
                 const u = parseFloat(document.getElementById('input-insulina').value) || 0;
