@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Clínico v5.0 (Optimized)</title>
+    <title>Monitor Clínico v5.8 (Estable)</title>
     <!-- MQTT para sincronización (Versión ligera) -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js (CDN optimizado) -->
@@ -304,7 +304,7 @@
     </div>
 
     <script>
-        // --- SISTEMA OPTIMIZADO V5.0 ---
+        // --- SISTEMA OPTIMIZADO V5.8 ---
         
         // 1. Configuración Global
         const CONFIG = {
@@ -515,19 +515,10 @@
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                 }
-                // Chart Update (Optimizado)
-                if(chart) {
-                    chart.data.labels.push('');
-                    chart.data.datasets[0].data.push(val);
-                    if(chart.data.labels.length > 20) {
-                        chart.data.labels.shift();
-                        chart.data.datasets[0].data.shift();
-                    }
-                    // Color fijo verde neón siempre
-                    chart.data.datasets[0].borderColor = '#2ecc71'; 
-                    chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
-                    chart.update('none'); // Sin animación pesada
-                }
+                // Color fijo verde neón siempre
+                chart.data.datasets[0].borderColor = '#2ecc71'; 
+                chart.data.datasets[0].backgroundColor = 'rgba(46, 204, 113, 0.1)';
+                chart.update('none'); // Sin animación pesada
             }
         }
 
@@ -560,7 +551,7 @@
                 document.getElementById('fecha-pantalla').innerText = now.toLocaleDateString('es-CO', {day:'numeric', month:'short'});
             }, 1000);
 
-                // Chart
+            // Chart
             const ctx = document.getElementById('glucosaChart').getContext('2d');
             Chart.defaults.color = '#555';
             Chart.defaults.borderColor = '#333';
