@@ -21,6 +21,7 @@
             --warning: #e67e22;
             --danger: #e74c3c;
             --info: #3498db;
+            --ketone: #9b59b6; /* Morado Cetonas */
         }
 
         body {
@@ -103,6 +104,25 @@
             margin: 15px 0;
             display: inline-block;
             background: #333;
+        }
+
+        /* Alerta Cetonas */
+        #alerta-cetonas {
+            display: none;
+            background-color: rgba(155, 89, 182, 0.2);
+            color: var(--ketone);
+            border: 1px solid var(--ketone);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; box-shadow: 0 0 15px var(--ketone); }
+            100% { opacity: 0.8; }
         }
 
         /* Botón Audio */
@@ -192,6 +212,7 @@
         .bg-orange { background: var(--warning); }
         .bg-blue { background: var(--info); }
         .bg-grey { background: #7f8c8d; }
+        .bg-purple { background: var(--ketone); }
 
         #btn-admin {
             margin-top: 30px;
@@ -233,6 +254,9 @@
         <div id="valor-glucosa">---</div>
         <div class="unidad">mg/dL</div>
         <div id="mensaje-estado">Conectando...</div>
+        
+        <!-- Alerta Cetonas -->
+        <div id="alerta-cetonas">🟣 RIESGO CETOSIS (+300 mg/dL)</div>
 
         <!-- Chart -->
         <div class="chart-container">
@@ -441,11 +465,19 @@
 
             // Lógica Clínica
             elMsg.className = ''; 
+            document.getElementById('alerta-cetonas').style.display = 'none'; // Reset cetonas
+
             if (val < 70) {
                 elVal.style.color = 'var(--danger)';
                 elMsg.innerText = "HIPOGLUCEMIA";
                 elMsg.classList.add('state-danger');
                 gestionarAlarma(true); // Alarma grave
+            } else if (val > 300) { // Cetonas y Emergencia
+                elVal.style.color = 'var(--ketone)';
+                elMsg.innerText = "HIPERGLUCEMIA SEVERA";
+                elMsg.style.background = 'rgba(155, 89, 182, 0.2)';
+                document.getElementById('alerta-cetonas').style.display = 'block';
+                gestionarAlarma(true); 
             } else if (val > 180) {
                 elVal.style.color = 'var(--warning)';
                 elMsg.innerText = "HIPERGLUCEMIA";
