@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Sincronizado v4.1 (Modo Oscuro)</title>
+    <title>Monitor Sincronizado v4.4 (Real-Time)</title>
     <!-- MQTT para sincronización -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <!-- Chart.js para gráficos -->
@@ -199,7 +199,7 @@
 <body>
 
     <div class="monitor-card" id="card">
-        <p style="font-size: 0.7rem; color: #666; margin-top: -10px;">Versión 4.3 (Force Refresh)</p>
+        <p style="font-size: 0.7rem; color: #666; margin-top: -10px;">Versión 4.4 (Real-Time 1min)</p>
         
         <!-- Reloj y Fecha -->
         <div style="font-family: monospace; color: #888; margin-bottom: 10px;">
@@ -474,24 +474,32 @@
         }
 
         function iniciarTransmision() {
-            log("Transmitiendo datos...");
+            log("Transmitiendo datos (Ciclo: 1 min)...");
+            // Ciclo de 60 segundos (Tiempo Real Puro)
             setInterval(() => {
                 simularFisiologia();
                 if(client && client.connected) {
                     client.publish(topic, JSON.stringify(estado));
                 }
-            }, 1000); 
+            }, 60000); // 60000 ms = 1 minuto
+            
+            // Primera actualización inmediata
+            simularFisiologia();
         }
 
         function simularFisiologia() {
-            let ruido = (Math.random() - 0.5) * 0.5; 
-            estado.glucosa += (estado.tendencia / 60) + ruido; 
+            // Ajustamos el ruido porque ahora pasa 1 minuto entero
+            let ruido = (Math.random() - 0.5) * 2; 
             
-            if (estado.tendencia > 0) estado.tendencia -= 0.05;
-            if (estado.tendencia < 0) estado.tendencia += 0.05;
+            // Tendencia es mg/dL por minuto. Se aplica directa.
+            estado.glucosa += estado.tendencia + ruido; 
             
-            if (estado.glucosa < 40) { estado.glucosa = 40; estado.tendencia = 10.0; }
-            if (estado.glucosa > 400) { estado.glucosa = 400; estado.tendencia = -10.0; }
+            // Inercia fisiológica (Homeostasis)
+            if (estado.tendencia > 0) estado.tendencia -= 0.1;
+            if (estado.tendencia < 0) estado.tendencia += 0.1;
+            
+            if (estado.glucosa < 40) { estado.glucosa = 40; estado.tendencia = 5.0; } // Rebote adrenalina
+            if (estado.glucosa > 400) { estado.glucosa = 400; estado.tendencia = -5.0; }
             
             actualizarPantalla(estado);
         }
