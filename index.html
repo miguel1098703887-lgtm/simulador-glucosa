@@ -3,29 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Clínico v6.1 (Predictivo + IOB)</title>
-    <!-- MQTT para sincronización (Versión ligera) -->
+    <title>SOFIA - Monitor Clínico v7.0 (Optimizado)</title>
+    <!-- MQTT para sincronización -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <!-- Chart.js (CDN optimizado) -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Plugins para Zoom y Gestos -->
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --bg-color: #121212;
-            --card-bg: #1e1e1e;
-            --text-main: #e0e0e0;
-            --text-dim: #888;
-            --success: #2ecc71;
-            --warning: #e67e22;
-            --danger: #e74c3c;
-            --info: #3498db;
-            --ketone: #9b59b6; /* Morado Cetonas */
-            --iob: #f1c40f; /* Amarillo IOB */
+            --bg-color: #0a0a0a;
+            --card-bg: #141414;
+            --text-main: #f0f0f0;
+            --text-dim: #666;
+            --success: #00ff88;
+            --warning: #ffaa00;
+            --danger: #ff4444;
+            --info: #00ccff;
+            --ketone: #cc00ff;
+            --iob: #ffee00;
+            --sofia: #00f2ff;
         }
 
         body {
@@ -34,7 +35,7 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 20px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -44,335 +45,289 @@
 
         .monitor-card {
             background: var(--card-bg);
-            padding: 25px;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             width: 100%;
             max-width: 480px;
-            border: 1px solid #333;
+            border: 1px solid #222;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Indicador de Estado */
+        /* SOFIA Badge */
+        .sofia-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--sofia);
+            color: #000;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem;
+            font-weight: bold;
+            padding: 2px 10px;
+            border-bottom-left-radius: 12px;
+            box-shadow: 0 0 10px var(--sofia);
+            animation: sofia-glow 2s infinite alternate;
+        }
+
+        @keyframes sofia-glow {
+            from { opacity: 0.8; }
+            to { opacity: 1; box-shadow: 0 0 15px var(--sofia); }
+        }
+
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            font-size: 0.8rem;
+            margin-bottom: 15px;
+            font-size: 0.75rem;
             color: var(--text-dim);
         }
 
         .status-badge {
             display: inline-flex;
             align-items: center;
-            background: #252525;
+            background: #1a1a1a;
             padding: 4px 10px;
-            border-radius: 12px;
+            border-radius: 20px;
+            border: 1px solid #333;
         }
 
         .status-dot {
-            height: 8px;
-            width: 8px;
-            background-color: #555;
+            height: 6px;
+            width: 6px;
+            background-color: #444;
             border-radius: 50%;
             margin-right: 6px;
         }
-        .connected .status-dot { background-color: var(--success); box-shadow: 0 0 5px var(--success); }
+        .connected .status-dot { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
         .disconnected .status-dot { background-color: var(--danger); }
 
-        /* Main Display */
-        #flecha-tendencia {
-            font-size: 3rem;
-            height: 50px;
-            margin-top: -15px;
-            display: block;
-        }
-
+        /* Glucosa Display */
         #valor-glucosa {
-            font-size: 6rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 6.5rem;
             font-weight: 700;
             line-height: 1;
-            margin: 10px 0;
-            letter-spacing: -2px;
-            color: #3498db;
-            transition: color 0.5s ease;
-            text-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+            margin: 5px 0;
+            letter-spacing: -4px;
+            color: var(--sofia);
+            transition: color 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
         }
 
-        /* IOB Display (Nuevo) */
-        #iob-container {
-            height: 30px;
-            margin-top: 5px;
+        #flecha-tendencia {
+            font-size: 2.5rem;
+            margin-bottom: -10px;
         }
+
         #iob-display {
-            font-size: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
             color: var(--iob);
-            border: 1px solid var(--iob);
-            padding: 5px 15px;
+            border: 1px solid rgba(255, 238, 0, 0.3);
+            padding: 4px 12px;
             border-radius: 20px;
             display: inline-block;
             font-weight: bold;
-            opacity: 0; /* Oculto por defecto hasta que haya insulina */
-            transition: opacity 0.5s;
+            margin-top: 5px;
         }
 
-        .unidad { font-size: 1.5rem; color: var(--text-dim); font-weight: 400; }
+        .unidad { font-size: 1.2rem; color: var(--text-dim); margin-top: -5px; }
 
         #mensaje-estado {
-            font-size: 1.2rem;
-            font-weight: bold;
-            padding: 8px 15px;
-            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 800;
+            padding: 6px 20px;
+            border-radius: 50px;
             margin: 15px 0;
             display: inline-block;
-            background: #333;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        /* Alerta Cetonas */
-        #alerta-cetonas {
+        /* Banner Crítico */
+        #banner-alerta {
             display: none;
-            background-color: rgba(155, 89, 182, 0.2);
-            color: var(--ketone);
-            border: 1px solid var(--ketone);
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 10px;
-            font-weight: bold;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.8; }
-            50% { opacity: 1; box-shadow: 0 0 15px var(--ketone); }
-            100% { opacity: 0.8; }
-        }
-
-        /* Botón Audio */
-        #btn-audio {
-            background: var(--success);
-            color: #000;
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: bold;
+            position: absolute;
+            top: 50px;
+            left: 0;
             width: 100%;
-            cursor: pointer;
-            margin-bottom: 15px;
-            transition: transform 0.1s;
+            background: var(--danger);
+            color: #fff;
+            font-weight: bold;
+            padding: 8px 0;
+            z-index: 100;
+            animation: slideDown 0.3s ease, flashRed 0.5s infinite alternate;
         }
-        #btn-audio:active { transform: scale(0.98); }
+
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        @keyframes flashRed { from { background: #ff0000; } to { background: #880000; } }
 
         /* Gráfico */
         .chart-container {
             position: relative;
-            height: 180px;
+            height: 200px;
             width: 100%;
-            margin-bottom: 15px;
+            margin-top: 10px;
         }
 
-        /* Historial */
+        /* Registro */
         #historial-container {
-            max-height: 120px;
+            max-height: 100px;
             overflow-y: auto;
             text-align: left;
-            border-top: 1px solid #333;
-            padding-top: 10px;
-            font-size: 0.85rem;
-            color: #aaa;
+            border-top: 1px solid #222;
+            padding: 10px 5px;
+            font-size: 0.75rem;
+            color: #777;
+            scrollbar-width: thin;
         }
-        .log-entry { 
-            padding: 4px 0; 
-            border-bottom: 1px solid #2a2a2a; 
-            display: flex;
-            justify-content: space-between;
+        .log-entry { padding: 3px 0; border-bottom: 1px dotted #222; display: flex; justify-content: space-between; }
+
+        /* Controles */
+        button {
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        button:active { transform: scale(0.95); }
+
+        #btn-audio {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+            padding: 8px;
+            border-radius: 12px;
+            width: 100%;
+            margin-bottom: 10px;
+            font-weight: bold;
         }
 
-        /* Chat IA */
+        #btn-consultar-ia {
+            background: #1a1a1a;
+            color: var(--sofia);
+            border: 1px solid #333;
+            padding: 12px;
+            border-radius: 16px;
+            width: 100%;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
         #chat-ia-container {
             display: none;
-            background: #252525;
-            border: 1px solid #444;
-            border-radius: 12px;
-            margin-top: 15px;
+            background: #000;
+            border-radius: 16px;
             padding: 15px;
-            text-align: left;
-        }
-        #chat-ia-response {
-            font-size: 0.9rem;
-            color: #ddd;
             margin-top: 10px;
-            line-height: 1.4;
-            white-space: pre-wrap;
+            text-align: left;
+            border: 1px solid #222;
+            font-size: 0.85rem;
+            line-height: 1.5;
         }
-        #btn-consultar-ia {
-            background: linear-gradient(135deg, #6c5ce7, #a55eea);
-            color: white;
-            border: none;
-            padding: 12px;
+
+        .panel-docente {
+            display: none;
+            background: #0f0f0f;
+            border-radius: 16px;
+            padding: 15px;
+            margin-top: 20px;
+            border: 1px dashed #444;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 10px;
             border-radius: 8px;
             font-weight: bold;
-            width: 100%;
-            cursor: pointer;
-            margin-top: 10px;
-            box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
-        }
-
-        .control-group {
-            margin-bottom: 12px;
-        }
-        
-        .control-label {
-            display: block; 
-            font-size: 0.8rem; 
-            font-weight: bold; 
-            margin-bottom: 5px; 
-            text-align: left;
-        }
-
-        input, select {
-            background: #111;
-            color: #fff;
-            border: 1px solid #444;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-
-        button.action-btn {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
             color: white;
-            cursor: pointer;
-            font-size: 0.9rem;
             margin-top: 5px;
         }
 
-        .bg-red { background: var(--danger); }
-        .bg-orange { background: var(--warning); }
-        .bg-blue { background: var(--info); }
-        .bg-grey { background: #7f8c8d; }
-        .bg-purple { background: var(--ketone); }
-
-        #btn-admin {
-            margin-top: 30px;
-            background: transparent;
-            border: 1px solid #444;
-            color: #666;
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        /* Clases de Estado */
-        .state-normal { color: var(--success); background: rgba(46, 204, 113, 0.1); }
-        .state-warn { color: var(--warning); background: rgba(230, 126, 34, 0.1); }
-        .state-danger { color: var(--danger); background: rgba(231, 76, 60, 0.1); }
+        /* Estados de Color */
+        .state-normal { color: var(--success); background: rgba(0, 255, 136, 0.05); }
+        .state-warn { color: var(--warning); background: rgba(255, 170, 0, 0.05); }
+        .state-danger { color: var(--danger); background: rgba(255, 68, 68, 0.05); }
+        .state-ketone { color: var(--ketone); background: rgba(204, 0, 255, 0.05); }
 
     </style>
 </head>
 <body>
 
     <div class="monitor-card">
-        <!-- Header -->
+        <div class="sofia-badge">SOFIA ACTIVE</div>
+        
+        <div id="banner-alerta">⚠️ ALERTA CRÍTICA ⚠️</div>
+
         <div class="header">
             <div id="status-badge" class="status-badge disconnected">
                 <span class="status-dot"></span> <span id="status-text">Desconectado</span>
             </div>
             <div style="text-align: right;">
-                <div id="fecha-pantalla" style="font-weight: bold;">--/--</div>
-                <div id="reloj-pantalla">--:--</div>
+                <div id="reloj-pantalla" style="font-weight: 800; font-size: 1rem; color: #fff;">--:--</div>
+                <div id="fecha-pantalla">--/--</div>
             </div>
         </div>
 
-        <!-- Audio Trigger -->
-        <button id="btn-audio" onclick="habilitarAudio()">🔊 Activar Sonido</button>
+        <button id="btn-audio" onclick="habilitarAudio()">🔊 ACTIVAR ALERTAS SONORAS</button>
 
-        <!-- Main Display -->
         <div id="flecha-tendencia">--</div>
         <div id="valor-glucosa">---</div>
-        <div id="iob-container"><div id="iob-display">IOB: 0.00 UI</div></div>
+        <div id="iob-container"><div id="iob-display" style="opacity:0">IOB: 0.00 UI</div></div>
         <div class="unidad">mg/dL</div>
-        <div id="mensaje-estado">Conectando...</div>
-        
-        <!-- Alerta Cetonas -->
-        <div id="alerta-cetonas">🟣 RIESGO CETOSIS (+300 mg/dL)</div>
+        <div id="mensaje-estado">INICIALIZANDO...</div>
 
-        <!-- Chart -->
         <div class="chart-container">
             <canvas id="glucosaChart"></canvas>
         </div>
-        
-        <div style="font-size: 0.7rem; color: #666; margin-bottom: 10px;">
-            🔍 Zoom/Pan • Línea Punteada = Predicción 30min
-        </div>
 
-        <!-- Log -->
         <div id="historial-container">
-            <div style="font-weight: bold; margin-bottom: 5px; color: #fff;">📒 Registro Clínico</div>
             <div id="lista-eventos"></div>
         </div>
 
-        <!-- Asistente IA (Simulado MedGemma) -->
-        <button id="btn-consultar-ia" onclick="consultarIA()">🤖 Consultar Asistente Clínico (IA)</button>
+        <button id="btn-consultar-ia" onclick="consultarIA()">🤖 ANÁLISIS SOFIA AI</button>
         <div id="chat-ia-container">
-            <div style="font-weight: bold; color: #a55eea; margin-bottom: 5px;">MedGemma-Lite dice:</div>
-            <div id="chat-ia-response">Analizando signos vitales...</div>
+            <div style="font-weight: bold; color: var(--sofia); margin-bottom: 5px;">SOFIA Monitoring:</div>
+            <div id="chat-ia-response">Analizando datos...</div>
         </div>
 
-        <!-- Admin Panel -->
-        <div id="panel-docente">
-            <h3 style="margin-top: 0; color: #fff;">👨‍🏫 Panel Docente</h3>
-            
-            <div class="control-group">
-                <span class="control-label" style="color: var(--danger)">💉 INSULINA</span>
-                <div style="display: flex; gap: 5px;">
-                    <input type="number" id="input-insulina" value="5" min="1" max="50" style="width: 60px; text-align: center;">
-                    <button class="action-btn bg-red" onclick="emitirEvento('insulina_custom')">Administrar</button>
-                </div>
+        <div id="panel-docente" class="panel-docente">
+            <h4 style="margin:0 0 10px 0; color:#555">Panel de Control</h4>
+            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                <input type="number" id="input-insulina" value="5" style="width: 50px; background:#000; border:1px solid #333; color:#fff; padding:5px; border-radius:5px">
+                <button class="action-btn" style="background:var(--danger); flex:1" onclick="emitirEvento('insulina_custom')">INSULINA</button>
             </div>
-
-            <div class="control-group">
-                <span class="control-label" style="color: var(--warning)">🍔 INGESTA</span>
-                <select id="select-comida" style="width: 100%;">
-                    <option value="jugo">🧃 Jugo (Rápido +4.0)</option>
-                    <option value="manzana">🍎 Manzana (Medio +2.0)</option>
-                    <option value="pizza">🍕 Pizza (Lento +1.5)</option>
-                </select>
-                <button class="action-btn bg-orange" onclick="emitirEvento('comida')">Registrar</button>
-            </div>
-
-            <div class="control-group">
-                <span class="control-label" style="color: var(--info)">🏃 ACTIVIDAD</span>
-                <button class="action-btn bg-blue" onclick="emitirEvento('ejercicio')">Iniciar Ejercicio (-2.0)</button>
-            </div>
-
-            <button class="action-btn bg-grey" onclick="emitirEvento('reset')">🔄 Reiniciar Caso</button>
+            <select id="select-comida" style="width:100%; background:#000; color:#fff; border:1px solid #333; padding:8px; border-radius:5px; margin-bottom:5px">
+                <option value="jugo">🧃 Jugo (+4.0)</option>
+                <option value="manzana">🍎 Manzana (+2.0)</option>
+                <option value="pizza">🍕 Pizza (+1.5)</option>
+            </select>
+            <button class="action-btn" style="background:var(--warning)" onclick="emitirEvento('comida')">REGISTRAR INGESTA</button>
+            <button class="action-btn" style="background:var(--info)" onclick="emitirEvento('ejercicio')">EJERCICIO (-2.0)</button>
+            <button class="action-btn" style="background:#333" onclick="emitirEvento('reset')">RESET</button>
         </div>
 
-        <button id="btn-admin" onclick="activarModoDocente()">Modo Docente</button>
+        <button onclick="activarModoDocente()" style="background:transparent; color:#333; font-size:0.6rem; margin-top:20px; text-decoration:underline">Acceso Técnico</button>
     </div>
 
     <script>
-        // --- SISTEMA OPTIMIZADO V6.1 (Predictivo + IOB) ---
+        // --- SOFIA MONITORING SYSTEM V7.0 ---
         
-        // 1. Configuración Global
         const CONFIG = {
             broker: 'wss://broker.emqx.io:8084/mqtt',
             topic: 'johana-enfermeria/monitor-v5', 
-            updateInterval: 60000, 
-            timezone: 'America/Bogota'
+            updateInterval: 60000,
+            storageKey: 'sofia_data_v7'
         };
 
         let state = {
             glucosa: 110.0,
             tendencia: 0.0,
             lastEventId: 0,
-            iob: 0.0, // Insulina a Bordo
-            lastInsulinTime: 0
+            iob: 0.0,
+            historial: [] // Para persistencia
         };
 
         let client, chart, audioCtx;
@@ -380,14 +335,46 @@
         let audioEnabled = false;
         let lastBeep = 0;
 
-        // 2. Audio Engine (Lazy Load)
+        // --- PERSISTENCIA ---
+        function guardarDatos() {
+            try {
+                const dataToSave = {
+                    glucosa: state.glucosa,
+                    tendencia: state.tendencia,
+                    iob: state.iob,
+                    labels: chart.data.labels,
+                    realData: chart.data.datasets[0].data,
+                    lastUpdate: Date.now()
+                };
+                localStorage.setItem(CONFIG.storageKey, JSON.stringify(dataToSave));
+            } catch(e) { console.warn("Storage fallido", e); }
+        }
+
+        function cargarDatos() {
+            const saved = localStorage.getItem(CONFIG.storageKey);
+            if (!saved) return false;
+            try {
+                const data = JSON.parse(saved);
+                // Si los datos tienen más de 12 horas, no cargarlos
+                if (Date.now() - data.lastUpdate > 12 * 60 * 60 * 1000) return false;
+                
+                state.glucosa = data.glucosa;
+                state.tendencia = data.tendencia;
+                state.iob = data.iob;
+                
+                chart.data.labels = data.labels;
+                chart.data.datasets[0].data = data.realData;
+                // Reconstruir predicción
+                chart.data.datasets[1].data = new Array(data.realData.length).fill(null);
+                
+                chart.update();
+                return true;
+            } catch(e) { return false; }
+        }
+
+        // --- AUDIO & HAPTICS ---
         function habilitarAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audioEnabled = true;
             beep(600, 100, 0.1); 
             document.getElementById('btn-audio').style.display = 'none';
@@ -404,43 +391,42 @@
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (duration/1000));
             osc.start();
             osc.stop(audioCtx.currentTime + (duration/1000));
+            
+            // Vibración para móviles
+            if ("vibrate" in navigator) navigator.vibrate(duration);
         }
 
-        // 3. Lógica de Negocio
+        // --- CORE LOGIC ---
         function simularFisiologia() {
-            const ruido = (Math.random() - 0.5) * 2;
+            const ruido = (Math.random() - 0.5) * 1.5;
             
-            // Decaimiento de IOB (Curva exponencial de absorción - aprox 20% cada hora simulada)
-            // En simulación 1 min, decaimiento rápido para efectos visuales
-            if (state.iob > 0.05) {
-                state.iob *= 0.98; // Se consume
+            // Decaimiento IOB más realista
+            if (state.iob > 0.01) {
+                state.iob *= 0.97; 
             } else {
                 state.iob = 0;
             }
 
             state.glucosa += state.tendencia + ruido;
 
-            if (state.tendencia > 0) state.tendencia -= 0.1;
-            if (state.tendencia < 0) state.tendencia += 0.1;
+            // Retorno a la base
+            if (state.tendencia > 0) state.tendencia -= 0.05;
+            if (state.tendencia < 0) state.tendencia += 0.05;
 
             state.glucosa = Math.max(20, Math.min(600, state.glucosa));
             actualizarUI(state);
+            guardarDatos();
         }
 
-        // 4. Conexión MQTT
         function conectar() {
-            const clientId = 'client-' + Math.random().toString(16).substr(2, 6);
-            client = mqtt.connect(CONFIG.broker, { 
-                clientId, 
-                clean: true, 
-                reconnectPeriod: 5000 
-            });
+            const clientId = 'sofia-' + Math.random().toString(16).substr(2, 6);
+            client = mqtt.connect(CONFIG.broker, { clientId, clean: true, reconnectPeriod: 5000 });
 
             client.on('connect', () => {
                 document.getElementById('status-badge').className = 'status-badge connected';
-                document.getElementById('status-text').innerText = esDocente ? "Transmitiendo" : "En Línea";
+                document.getElementById('status-text').innerText = esDocente ? "TRANSMITIENDO" : "SINCRONIZADO";
                 client.subscribe(CONFIG.topic);
-                if(esDocente) loopTransmision();
+                if(esDocente) iniciarLoop();
             });
 
             client.on('message', (topic, msg) => {
@@ -451,180 +437,148 @@
                         state.lastEventId = data.evtId;
                     }
                     if (!esDocente) actualizarUI(data);
-                } catch(e) { console.error(e); }
+                } catch(e) {}
             });
 
             client.on('offline', () => {
                 document.getElementById('status-badge').className = 'status-badge disconnected';
-                document.getElementById('status-text').innerText = "Reconectando...";
+                document.getElementById('status-text').innerText = "RECONECTANDO...";
             });
         }
 
-        // 5. Ciclo de Transmisión
-        function loopTransmision() {
+        function iniciarLoop() {
             simularFisiologia(); 
             setInterval(() => {
                 simularFisiologia();
-                publicar();
+                if(client && client.connected) client.publish(CONFIG.topic, JSON.stringify(state));
             }, CONFIG.updateInterval);
         }
 
-        function publicar() {
-            if(client && client.connected) {
-                client.publish(CONFIG.topic, JSON.stringify(state));
-            }
-        }
-
         function emitirEvento(tipo) {
-            const now = Date.now();
-            if (window.lastClickTime && (now - window.lastClickTime < 1000)) return;
-            window.lastClickTime = now;
-
             let msg = "";
-
+            const now = Date.now();
             if (tipo === 'insulina_custom') {
                 const u = parseFloat(document.getElementById('input-insulina').value) || 0;
-                state.tendencia -= (u * 1.5);
-                state.iob += u; // Sumar al cálculo de IOB
-                msg = `💉 Insulina: ${u} UI`;
+                state.tendencia -= (u * 1.2);
+                state.iob += u;
+                msg = `💉 INSULINA: ${u} UI`;
             } else if (tipo === 'comida') {
                 const val = document.getElementById('select-comida').value;
                 const map = { 'jugo': 4.0, 'manzana': 2.0, 'pizza': 1.5 };
                 state.tendencia += map[val];
-                msg = `🍔 Ingesta: ${val.toUpperCase()}`;
+                msg = `🍔 INGESTA: ${val.toUpperCase()}`;
             } else if (tipo === 'ejercicio') {
-                state.tendencia -= 2.0;
-                msg = "🏃 Ejercicio iniciado";
+                state.tendencia -= 1.5;
+                msg = "🏃 EJERCICIO";
             } else if (tipo === 'reset') {
                 state.glucosa = 110; state.tendencia = 0; state.iob = 0;
-                msg = "🔄 Reset";
+                msg = "🔄 RESET";
             }
-
             state.evt = msg;
             state.evtId = now;
-            
-            publicar();
+            if(client && client.connected) client.publish(CONFIG.topic, JSON.stringify(state));
             actualizarUI(state);
         }
 
-        // 6. UI & Render
+        // --- UI RENDER ---
         function actualizarUI(data) {
             const val = Math.floor(data.glucosa);
             const elVal = document.getElementById('valor-glucosa');
             const elMsg = document.getElementById('mensaje-estado');
             const elFlecha = document.getElementById('flecha-tendencia');
+            const elBanner = document.getElementById('banner-alerta');
 
             elVal.innerText = val;
             elMsg.className = ''; 
-            document.getElementById('alerta-cetonas').style.display = 'none';
-
-            elVal.style.color = '#3498db'; 
+            elBanner.style.display = 'none';
+            elVal.style.color = 'var(--sofia)'; 
 
             if (val < 70) {
                 elVal.style.color = 'var(--danger)';
                 elMsg.innerText = "HIPOGLUCEMIA";
                 elMsg.classList.add('state-danger');
+                elBanner.style.display = 'block';
+                elBanner.innerText = "🚨 ALERTA: GLUCOSA BAJA (" + val + ")";
                 gestionarAlarma(true);
-            } else if (val > 300) {
-                elVal.style.color = 'var(--ketone)';
-                elMsg.innerText = "HIPERGLUCEMIA SEVERA";
-                elMsg.style.background = 'rgba(155, 89, 182, 0.2)';
-                document.getElementById('alerta-cetonas').style.display = 'block';
-                gestionarAlarma(true); 
-            } else if (val > 180) {
-                elVal.style.color = 'var(--warning)';
-                elMsg.innerText = "HIPERGLUCEMIA";
-                elMsg.classList.add('state-warn');
-                gestionarAlarma(false);
+            } else if (val > 250) {
+                elVal.style.color = val > 300 ? 'var(--ketone)' : 'var(--warning)';
+                elMsg.innerText = val > 300 ? "RIESGO CETOSIS" : "HIPERGLUCEMIA";
+                elMsg.classList.add(val > 300 ? 'state-ketone' : 'state-warn');
+                if (val > 300) elBanner.style.display = 'block';
+                gestionarAlarma(val > 300);
             } else {
                 elMsg.innerText = "EN RANGO";
                 elMsg.classList.add('state-normal');
             }
 
             const t = data.tendencia;
-            if (t > 2) elFlecha.innerText = "⬆️";
-            else if (t > 0.5) elFlecha.innerText = "↗️";
-            else if (t < -2) elFlecha.innerText = "⬇️";
-            else if (t < -0.5) elFlecha.innerText = "↘️";
-            else elFlecha.innerText = "➡️";
+            elFlecha.innerText = t > 2 ? "⬆️" : t > 0.5 ? "↗️" : t < -2 ? "⬇️" : t < -0.5 ? "↘️" : "➡️";
 
-            // Actualizar IOB Display
             const elIOB = document.getElementById('iob-display');
-            if (data.iob && data.iob > 0.1) {
+            if (data.iob > 0.1) {
                 elIOB.innerText = `IOB: ${data.iob.toFixed(2)} UI`;
                 elIOB.style.opacity = 1;
-            } else {
-                elIOB.style.opacity = 0;
-            }
+            } else { elIOB.style.opacity = 0; }
 
-            // Actualizar Gráfico + Predicción
+            // Actualizar Gráfico
             if(chart) {
-                const now = new Date();
-                const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 
-                // 1. Añadir punto real
                 chart.data.labels.push(timeStr);
-                chart.data.datasets[0].data.push(val); // Serie Real
-                chart.data.datasets[1].data.push(null); // Serie Predicción (hueco)
+                chart.data.datasets[0].data.push(val);
+                chart.data.datasets[1].data.push(null);
 
-                // Limpieza de buffer
-                if(chart.data.labels.length > 60) {
+                if(chart.data.labels.length > 50) {
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                     chart.data.datasets[1].data.shift();
                 }
 
-                // 2. Calcular Predicción (30 min a futuro)
-                const lastRealIndex = chart.data.datasets[0].data.length - 1;
-                while(chart.data.labels.length > lastRealIndex + 1) {
+                // Predicción 30 min
+                const lastIdx = chart.data.datasets[0].data.length - 1;
+                while(chart.data.labels.length > lastIdx + 1) {
                     chart.data.labels.pop();
                     chart.data.datasets[0].data.pop();
                     chart.data.datasets[1].data.pop();
                 }
 
-                let predVal = val;
-                let predTendencia = data.tendencia;
-                
-                chart.data.datasets[1].data[lastRealIndex] = val; 
+                let pV = val;
+                let pT = data.tendencia;
+                chart.data.datasets[1].data[lastIdx] = val; 
 
-                for(let i=1; i<=30; i+=5) { 
-                    predVal += (predTendencia * 5); 
-                    if (predTendencia > 0) predTendencia -= 0.5; 
-                    if (predTendencia < 0) predTendencia += 0.5;
-                    
-                    const futureTime = new Date(now.getTime() + i*60000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                    
-                    chart.data.labels.push(futureTime);
+                for(let i=5; i<=30; i+=5) { 
+                    pV += (pT * 5); 
+                    if (pT > 0) pT -= 0.1; else pT += 0.1;
+                    const fT = new Date(Date.now() + i*60000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                    chart.data.labels.push(fT);
                     chart.data.datasets[0].data.push(null);
-                    chart.data.datasets[1].data.push(predVal);
+                    chart.data.datasets[1].data.push(pV);
                 }
-
-                if (!chart.isZoomedOrPanned()) {
-                    chart.update('none');
-                }
+                chart.update('none');
             }
         }
 
-        function gestionarAlarma(esGrave) {
+        function gestionarAlarma(critica) {
             const now = Date.now();
-            if (now - lastBeep < 5000) return;
-            if (esGrave) {
-                beep(880, 100); setTimeout(()=>beep(880, 100), 150);
+            if (now - lastBeep < 8000) return;
+            if (critica) {
+                beep(900, 150); setTimeout(()=>beep(900, 150), 200);
+                setTimeout(()=>beep(900, 400), 400);
             } else {
-                beep(440, 300);
+                beep(500, 400);
             }
             lastBeep = now;
         }
 
         function logEvento(texto) {
-            const hora = new Date().toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit'});
             const div = document.createElement('div');
             div.className = 'log-entry';
-            div.innerHTML = `<span>${texto}</span> <span style="font-size:0.7rem; opacity:0.7">${hora}</span>`;
-            document.getElementById('lista-eventos').prepend(div);
+            div.innerHTML = `<span>${texto}</span> <span style="opacity:0.5">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`;
+            const container = document.getElementById('lista-eventos');
+            container.prepend(div);
+            if(container.children.length > 20) container.lastChild.remove();
         }
 
-        // 7. Inicialización
         function init() {
             setInterval(() => {
                 const now = new Date();
@@ -633,149 +587,78 @@
             }, 1000);
 
             const ctx = document.getElementById('glucosaChart').getContext('2d');
-            Chart.defaults.color = '#555';
-            Chart.defaults.borderColor = '#333';
-            
-            // Configuración del Gráfico con ZOOM
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: [], 
                     datasets: [
                         {
-                            label: 'Glucosa Real',
+                            label: 'Real',
                             data: [],
-                            borderColor: '#2ecc71',
-                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                            borderColor: '#00f2ff',
+                            backgroundColor: 'rgba(0, 242, 255, 0.05)',
                             borderWidth: 3,
-                            pointRadius: 3,
+                            pointRadius: 2,
                             tension: 0.4,
-                            fill: true,
-                            order: 1
+                            fill: true
                         },
                         {
-                            label: 'Proyección (30 min)',
+                            label: 'Predicción',
                             data: [],
-                            borderColor: 'rgba(255, 255, 255, 0.5)', // Blanco Fantasma
-                            borderDash: [5, 5], // Punteado
-                            borderWidth: 2,
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderDash: [4, 4],
                             pointRadius: 0,
                             tension: 0.4,
-                            fill: false,
-                            order: 2
+                            fill: false
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'nearest',
-                        axis: 'x',
-                        intersect: false
-                    },
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            enabled: true,
-                            intersect: false,
-                            backgroundColor: 'rgba(0,0,0,0.8)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            titleFont: { size: 14 },
-                            bodyFont: { size: 16, weight: 'bold' },
-                            callbacks: {
-                                label: function(context) {
-                                    return Math.round(context.parsed.y) + ' mg/dL';
-                                }
-                            }
-                        },
-                        zoom: {
-                            pan: {
-                                enabled: true,
-                                mode: 'x', // Scroll horizontal
-                            },
-                            zoom: {
-                                wheel: { enabled: true },
-                                pinch: { enabled: true }, // Pellizcar en celular
-                                mode: 'x',
-                            }
-                        }
-                    },
-                    scales: { 
-                        y: { min: 20, max: 400, grid: { color: '#333' } }, 
-                        x: { 
-                            display: true, 
-                            grid: { display: false },
-                            ticks: { 
-                                color: '#666',
-                                maxTicksLimit: 6 
-                            }
-                        } 
-                    },
+                    plugins: { legend: { display: false }, zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: true }, mode: 'x' } } },
+                    scales: { y: { min: 40, max: 350, grid: { color: '#1a1a1a' } }, x: { grid: { display: false }, ticks: { color: '#444', maxTicksLimit: 5 } } },
                     animation: false
                 }
             });
 
-            // Precargar datos vacíos (historial visual)
-            const now = Date.now();
-            for(let i=30; i>0; i--) {
-                const t = new Date(now - (i * 60000)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                chart.data.labels.push(t);
-                chart.data.datasets[0].data.push(null);
-                chart.data.datasets[1].data.push(null);
+            if (!cargarDatos()) {
+                // Buffer inicial si no hay datos
+                for(let i=20; i>0; i--) {
+                    chart.data.labels.push("");
+                    chart.data.datasets[0].data.push(null);
+                    chart.data.datasets[1].data.push(null);
+                }
             }
-            chart.update();
-
+            
             conectar();
         }
 
         function activarModoDocente() {
-            const pass = prompt("Clave Docente:");
-            if(pass === "profe123") {
+            if(prompt("Pin:") === "1234") {
                 esDocente = true;
                 document.getElementById('panel-docente').style.display = 'block';
-                document.getElementById('btn-admin').style.display = 'none';
-                alert("✅ MODO DOCENTE ACTIVO");
-                if('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
-                loopTransmision();
-            } else {
-                alert("❌ Clave incorrecta");
+                iniciarLoop();
             }
         }
 
-        // --- SISTEMA IA (Simulado MedGemma) ---
         function consultarIA() {
             const val = state.glucosa;
-            const iob = state.iob;
             const container = document.getElementById('chat-ia-container');
             const resp = document.getElementById('chat-ia-response');
-            
             container.style.display = 'block';
-            resp.innerHTML = "<i>Procesando con MedGemma...</i>";
+            resp.innerHTML = "<i>Procesando con algoritmos de SOFIA...</i>";
 
             setTimeout(() => {
-                let consejo = "";
-                
-                // Reglas Clínicas Basadas en Guías ADA
-                if (val < 50) {
-                    consejo = "🚨 **EMERGENCIA: Hipoglucemia Severa**\n\n1. Administrar **Glucagón** o Glucosa IV inmediatamente si hay pérdida de conciencia.\n2. Si está consciente: 20-30g de carbohidratos rápidos ya.";
-                } else if (val < 70) {
-                    consejo = "⚠️ **Hipoglucemia**\n\n1. Regla 15/15: Dar 15g de carbohidratos rápidos (ej. 1/2 vaso de jugo).\n2. Esperar 15 mins y reevaluar.\n3. **NO** inyectar insulina.";
-                } else if (val > 300) {
-                    consejo = "🟣 **Riesgo Cetoacidosis**\n\n1. Verificar Cetonas en orina/sangre.\n2. Hidratación agresiva.\n3. Evaluar corrección con insulina rápida (ojo con el IOB: tienes " + iob.toFixed(1) + " UI activas).";
-                } else if (val > 180) {
-                    consejo = "📈 **Hiperglucemia**\n\n1. Considerar corrección según factor de sensibilidad.\n2. Verificar si hay IOB (" + iob.toFixed(1) + " UI) antes de inyectar para evitar hipoglucemia futura.";
-                } else {
-                    consejo = "✅ **Paciente Estable**\n\nEl paciente está en rango objetivo (Euglucemia). Continuar monitoreo.";
-                }
-
-                resp.innerHTML = consejo;
-            }, 800); // Pequeño delay para simular "pensamiento"
+                let txt = "";
+                if (val < 70) txt = "🚨 **ESTADO CRÍTICO: HIPOGLUCEMIA**\nSOFIA recomienda 15g de azúcar rápido inmediatamente. No inyectar insulina.";
+                else if (val > 250) txt = "📈 **ALERTA: HIPERGLUCEMIA**\nSOFIA detecta niveles altos. Verifica cetonas e hidratación. Considera corrección si no hay IOB.";
+                else txt = "✅ **ESTADO: ESTABLE**\nNiveles dentro de rango. Manteniendo vigilancia continua.";
+                resp.innerHTML = txt;
+            }, 600);
         }
 
         window.onload = init;
-
     </script>
 </body>
 </html>
