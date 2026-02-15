@@ -397,9 +397,18 @@
         }
 
         // --- CORE LOGIC ---
+        let simulationMinutes = 0;
         function simularFisiologia() {
+            simulationMinutes++;
             const ruido = (Math.random() - 0.5) * 1.5;
             
+            // Pico automático cada 8 horas (480 minutos de simulación)
+            if (simulationMinutes % 480 === 0) {
+                state.glucosa = 250;
+                state.tendencia = 0;
+                logEvento("📈 PICO AUTOMÁTICO (8h)");
+            }
+
             // Decaimiento IOB más realista
             if (state.iob > 0.01) {
                 state.iob *= 0.97; 
